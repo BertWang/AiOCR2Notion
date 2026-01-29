@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = params.id;
+    const { id } = await params; // 正確解構 await params
 
     if (!id) {
       return NextResponse.json({ error: "Missing noteId" }, { status: 400 });
