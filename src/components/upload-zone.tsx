@@ -69,8 +69,14 @@ export function UploadZone() {
             })
 
             if (!response.ok) {
-                throw new Error(`上傳失敗: ${file.name}`)
+            // 檢查是否為速率限制錯誤 (429)
+            if (response.status === 429) {
+                const errorData = await response.json();
+                const retryAfter = errorData.retryAfter || 60; // 預設 60 秒
+                throw new Error(`AI 服務繁忙，請在 ${retryAfter} 秒後重試`);
             }
+            throw new Error(`上傳失敗: ${file.name}`);
+        }
             return response.json()
         })
 
@@ -95,8 +101,12 @@ export function UploadZone() {
 
     } catch (e) {
         console.error(e)
+        let errorMessage = "請檢查網路或稍後再試";
+        if (e instanceof Error) {
+            errorMessage = e.message;
+        }
         toast.error("處理失敗", {
-            description: "請檢查網路或稍後再試"
+            description: errorMessage
         })
         setUploadProgress(0)
     } finally {

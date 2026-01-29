@@ -5,8 +5,43 @@ import { prisma } from "@/lib/prisma";
 import { processNoteWithGemini } from "@/lib/gemini";
 import { revalidatePath } from 'next/cache'; // 引入 revalidatePath
 
+// --- 本地速率限制器 (In-Memory) ---
+const MAX_REQUESTS_PER_MINUTE = 5; // 每分鐘最多處理 5 個 AI 請求
+let requestCount = 0;
+let lastResetTime = Date.now();
+
+function checkRateLimit() {
+  const now = Date.now();
+  // 如果超過一分鐘，重置計數器
+  if (now - lastResetTime > 60 * 1000) {
+    requestCount = 0;
+    lastResetTime = now;
+  }
+
+  if (requestCount >= MAX_REQUESTS_PER_MINUTE) {
+    return { limited: true, retryAfter: 60 - Math.floor((now - lastResetTime) / 1000) };
+  }
+
+  requestCount++;
+  return { limited: false };
+}
+// -------------------------------------
+
 export async function POST(request: NextRequest) {
   try {
+    // --- 應用速率限制 ---
+    const rateLimitStatus = checkRateLimit();
+    if (rateLimitStatus.limited) {
+      return NextResponse.json(
+        { 
+          error: "AI 服務繁忙，請稍後再試", 
+          retryAfter: rateLimitStatus.retryAfter 
+        }, 
+        { status: 429 }
+      );
+    }
+    // -------------------
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
