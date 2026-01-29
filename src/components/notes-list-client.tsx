@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { FileText, Image as ImageIcon, PlusCircle, Trash2, Loader2, Check } from 'lucide-react';
+import { FileText, Image as ImageIcon, PlusCircle, Trash2, Loader2, Check, Download, FileStack } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,6 +35,8 @@ interface Note {
 export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
   const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -85,6 +87,65 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
     }
   };
 
+  const handleMergeSelected = async () => {
+    setIsMerging(true);
+    try {
+        const response = await fetch('/api/notes/merge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: Array.from(selectedNotes) }),
+        });
+
+        if (!response.ok) throw new Error('合併失敗');
+
+        toast.success("筆記已合併", { description: "新筆記已建立" });
+        setSelectedNotes(new Set());
+        startTransition(() => {
+            router.refresh();
+        });
+    } catch (e) {
+        console.error("Merge error:", e);
+        toast.error("合併失敗", { description: "請稍後再試" });
+    } finally {
+        setIsMerging(false);
+    }
+  };
+
+  const handleExportSelected = () => {
+    setIsExporting(true);
+    try {
+        const selectedIds = new Set(selectedNotes);
+        const notesToExport = allNotes
+            .filter(n => selectedIds.has(n.id))
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // 按時間排序
+
+        let exportContent = "";
+        notesToExport.forEach(note => {
+            exportContent += `# ${note.summary || 'Untitled Note'}\n\n`;
+            exportContent += `> Tags: ${note.tags || 'None'}\n\n`;
+            exportContent += `${note.refinedContent || note.rawOcrText || '(No Content)'}\n\n`;
+            exportContent += `---\n\n`;
+        });
+
+        const blob = new Blob([exportContent], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `exported-notes-${new Date().toISOString().slice(0, 10)}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast.success("匯出成功", { description: "已開始下載 Markdown 檔案" });
+    } catch (e) {
+        console.error("Export error:", e);
+        toast.error("匯出失敗");
+    } finally {
+        setIsExporting(false);
+    }
+  };
+
   const hasSelected = selectedNotes.size > 0;
   const allSelected = selectedNotes.size === allNotes.length && allNotes.length > 0;
 
@@ -104,42 +165,66 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
             </label>
           </div>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button 
-                variant="destructive" 
-                size="sm" 
-                disabled={!hasSelected || isDeleting}
-                className="transition-all duration-200 ease-in-out"
-              >
-                {isDeleting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4 mr-2" />
-                )}
-                刪除選取 ({selectedNotes.size})
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>確定要刪除這些筆記嗎？</AlertDialogTitle>
-                <AlertDialogDescription>
-                  此操作將會永久刪除所有選取的 {selectedNotes.size} 份筆記及其相關圖片檔案，且無法復原。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>取消</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleDeleteSelected}
-                  disabled={isDeleting}
-                  className="bg-red-500 text-white hover:bg-red-600"
+          <div className="flex items-center gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={handleMergeSelected}
+                disabled={!hasSelected || isMerging || isDeleting || selectedNotes.size < 2}
+                className="hidden md:flex"
+            >
+                {isMerging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileStack className="w-4 h-4 mr-2" />}
+                合併 ({selectedNotes.size})
+            </Button>
+
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportSelected}
+                disabled={!hasSelected || isExporting || isDeleting}
+                className="hidden md:flex"
+            >
+                {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                匯出 Markdown
+            </Button>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  disabled={!hasSelected || isDeleting}
+                  className="transition-all duration-200 ease-in-out"
                 >
-                  {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  確認刪除
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  {isDeleting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 mr-2" />
+                  )}
+                  刪除 ({selectedNotes.size})
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>確定要刪除這些筆記嗎？</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    此操作將會永久刪除所有選取的 {selectedNotes.size} 份筆記及其相關圖片檔案，且無法復原。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleDeleteSelected}
+                    disabled={isDeleting}
+                    className="bg-red-500 text-white hover:bg-red-600"
+                  >
+                    {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    確認刪除
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       )}
 
