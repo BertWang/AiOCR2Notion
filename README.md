@@ -86,7 +86,7 @@
 
 #### 1. 輸入與處理 (Ingestion & Processing)
 這是系統的起點，確保內容能順暢地進入系統並被智能處理。
-*   **批次圖片/PDF 上傳** (✅ 已實作前端批次上傳，後端單次處理，需優化為後端也支援多檔陣列接收)
+*   **批次圖片/PDF 上傳** (✅ 已實作前端批次上傳，後端單次處理，含本地速率限制)
     *   支援多種圖片格式 (JPG, PNG, WEBP) 及 PDF。
     *   支援拖曳上傳、選取檔案。
     *   即時進度顯示與錯誤回報。
@@ -128,7 +128,7 @@
 *   **原文對照校準模式 (Calibration Mode)** (❌ 規劃中，核心難點)
     *   **關鍵功能**：點擊 Markdown 內容時，原始圖片自動定位並高亮對應的文字區域。
     *   反之，框選圖片區域，Markdown 自動高亮對應文字。
-*   **筆記內容編輯** (✅ 已實作 Markdown 編輯，儲存到後端功能待連結)
+*   **筆記內容編輯** (✅ 已實作 Markdown 編輯，可儲存變更至資料庫)
     *   編輯 Markdown 後可儲存變更至資料庫。
     *   Markdown 編輯器應提供基本格式工具欄。
 *   **閱讀模式** (❌ 規劃中)
@@ -169,16 +169,18 @@
 - [x] **Testing**: End-to-End 流程測試通過 (`scripts/test-pipeline.ts`)。
 
 ### B. 核心功能 (Core Features)
-- [ ] **Upload Action**: 處理圖片上傳與資料庫寫入。
-- [ ] **AI Integration**: 將測試過的 AI 腳本整合進 Next.js API Route。
+- [x] **Upload Action**: 處理圖片上傳與資料庫寫入。
+- [x] **AI Integration**: 將測試過的 AI 腳本整合進 Next.js API Route。
+- [x] **Note Content Saving**: 筆記內容編輯與儲存。
 - [ ] **Calibration Mode**: 實作「原文對照」與「手動校正」功能。
 
 ### C. 前端介面 (UI Components)
 - [x] **UI Lib**: shadcn/ui 安裝完成 (Sidebar, Button, Input, etc.)。
-- [ ] **AppLayout**: 實作數位禪意風格的主佈局。
-- [ ] **UploadZone**: 支援拖曳、預覽的互動區塊。
-- [ ] **Dashboard**: 筆記列表與狀態管理。
-- [ ] **SplitEditor**: 雙欄校對編輯器。
+- [x] **AppLayout**: 實作數位禪意風格的主佈局。
+- [x] **UploadZone**: 支援拖曳、預覽的互動區塊 (含批次上傳)。
+- [x] **Dashboard**: 筆記列表與狀態管理 (即時刷新)。
+- [x] **SplitEditor**: 雙欄校對編輯器 (含編輯儲存)。
+- [x] **All Notes Page**: 所有筆記列表頁面 (含批次刪除)。
 
 ***
 
