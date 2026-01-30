@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { processNoteWithGemini } from "@/lib/gemini";
+import { AIProviderFactory } from "@/lib/ai-service/factory";
+import { revalidatePath } from 'next/cache';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 3. 重新執行 AI 處理
+    // 3. 重新執行 AI 處理 (使用可配置的 AI 提供商)
     // 注意：imageUrl 格式是 "/uploads/filename"，我們需要轉換回系統絕對路徑
     const filename = note.fileKey || path.basename(note.imageUrl);
     const filepath = path.join(process.cwd(), "public/uploads", filename);
@@ -38,7 +39,8 @@ export async function POST(request: NextRequest) {
     const mimeType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
 
     try {
-      const aiResult = await processNoteWithGemini(filepath, mimeType);
+      const aiProvider = AIProviderFactory.getDefaultProvider();
+      const aiResult = await aiProvider.processNote(filepath, mimeType);
       
       // 4. 更新資料庫
       const updatedNote = await prisma.note.update({
@@ -49,10 +51,12 @@ export async function POST(request: NextRequest) {
           summary: aiResult.summary,
           tags: aiResult.tags.join(","),
           confidence: aiResult.confidence,
-          ocrProvider: "gemini-2.0-flash (retry)",
+          ocrProvider: process.env.AI_PROVIDER || "gemini-2.0-flash (retry)",
           status: "COMPLETED",
         },
       });
+
+      revalidatePath('/');
 
       return NextResponse.json({ success: true, note: updatedNote });
 

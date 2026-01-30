@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { processNoteWithGemini } from "@/lib/gemini";
+import { AIProviderFactory } from "@/lib/ai-service/factory";
+import { NotesProcessingPipeline } from "@/lib/processing-pipeline";
 import { revalidatePath } from 'next/cache'; // 引入 revalidatePath
 
 // --- 本地速率限制器 (In-Memory) ---
@@ -76,12 +77,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 3. 觸發 AI 處理 (在真實生產環境應放入 Queue，這裡為演示直接 await 或非同步執行)
-    // 為了即時回饋，我們這裡選擇 await (用戶需等待 AI)，或者可以 fire-and-forget
-    // 考慮到體驗，我們先 await 讓用戶看到結果，若太慢後續可改為背景處理
-    
+    // 3. 觸發 AI 處理 (使用可配置的處理管道)
     try {
-      const aiResult = await processNoteWithGemini(filepath, file.type || "image/jpeg");
+      // 使用工廠模式獲取配置的 AI 提供商
+      const aiProvider = AIProviderFactory.getDefaultProvider();
+      
+      // 使用處理管道執行
+      const pipeline = new NotesProcessingPipeline();
+      const aiResult = await aiProvider.processNote(filepath, file.type || "image/jpeg");
       
       // 4. 更新資料庫
       const updatedNote = await prisma.note.update({
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
           summary: aiResult.summary,
           tags: aiResult.tags.join(","),
           confidence: aiResult.confidence,
-          ocrProvider: "gemini-2.0-flash",
+          ocrProvider: process.env.AI_PROVIDER || "gemini-2.0-flash",
           status: "COMPLETED",
         },
       });
