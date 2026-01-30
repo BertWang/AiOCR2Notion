@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 /**
- * 搜尋歷史管理
- * GET: 獲取搜尋歷史
+ * 搜尋歷史管理 API
+ * GET: 獲取搜尋歷史 (支援分頁)
  * POST: 新增搜尋歷史記錄
  * DELETE: 清除搜尋歷史
  */
@@ -11,41 +11,51 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const limit = parseInt(searchParams.get("limit") || "20");
+    const offset = parseInt(searchParams.get("offset") || "0");
+    const userId = searchParams.get("userId") || "default";
 
-    // 從 SQLite 中查詢最近的搜尋（存儲在 Note 的 rawOcrText 中作為備用）
-    // 實際上應該在 schema 中添加 SearchHistory 模型
-    // 這是臨時解決方案
-    
-    const recentSearches = await prisma.note.findMany({
+    // 從 SearchHistory 表中查詢最近的搜尋
+    const searchHistoryList = await prisma.searchHistory.findMany({
       where: {
-        status: "COMPLETED",
+        userId: userId,
       },
       select: {
-        summary: true,
-        tags: true,
+        id: true,
+        query: true,
+        resultCount: true,
         createdAt: true,
       },
       take: limit,
+      skip: offset,
       orderBy: { createdAt: "desc" },
     });
 
-    const searchHistoryList = recentSearches.map((note) => ({
-      query: note.summary || "未命名",
-      tags: note.tags ? note.tags.split(",").map((t) => t.trim()) : [],
-      timestamp: note.createdAt,
-    }));
+    // 計算總數
+    const total = await prisma.searchHistory.count({
+      where: {
+        userId: userId,
+      },
+    });
 
-    return NextResponse.json(searchHistoryList);
+    return NextResponse.json({
+      data: searchHistoryList,
+      total,
+      limit,
+      offset,
+    });
   } catch (error) {
     console.error("Get search history error:", error);
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch search history" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { query, tags } = await request.json();
+    const { query, filters, resultCount, userId = "default" } = await request.json();
 
     if (!query || query.trim().length === 0) {
       return NextResponse.json(
@@ -54,15 +64,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 記錄搜尋（創建一個臨時記錄或更新現有）
-    // 這是簡單實現，實際應使用 SearchHistory 模型
-    console.log(`Search recorded: ${query} with tags: ${tags?.join(",")}`);
-
-    return NextResponse.json({
-      success: true,
-      query,
-      timestamp: new Date().toISOString(),
+    // 記錄新的搜尋
+    const searchRecord = await prisma.searchHistory.create({
+      data: {
+        query: query.trim(),
+        filters: filters ? JSON.stringify(filters) : null,
+        resultCount: resultCount || 0,
+        userId: userId,
+      },
+      select: {
+        id: true,
+        query: true,
+        resultCount: true,
+        createdAt: true,
+      },
     });
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: searchRecord,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Post search history error:", error);
     return NextResponse.json(
@@ -74,18 +98,40 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // 清除搜尋歷史
-    // 實現方式取決於 SearchHistory 模型的設計
-    console.log("Search history cleared");
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId") || "default";
+    const historyId = searchParams.get("id");
 
-    return NextResponse.json({
-      success: true,
-      message: "Search history cleared",
-    });
+    if (historyId) {
+      // 刪除特定記錄
+      await prisma.searchHistory.delete({
+        where: {
+          id: historyId,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Search history item deleted",
+      });
+    } else {
+      // 清除用戶所有搜尋歷史
+      const result = await prisma.searchHistory.deleteMany({
+        where: {
+          userId: userId,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Search history cleared",
+        deletedCount: result.count,
+      });
+    }
   } catch (error) {
     console.error("Delete search history error:", error);
     return NextResponse.json(
-      { error: "Failed to clear history" },
+      { error: "Failed to delete history" },
       { status: 500 }
     );
   }
