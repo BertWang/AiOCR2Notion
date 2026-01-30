@@ -1,6 +1,7 @@
 "use client";
 
 import { VersionInfo } from "@/components/version-info";
+import { VersionInfoErrorBoundary } from "@/components/version-info-error-boundary";
 import { Github, FileText } from "lucide-react";
 import Link from "next/link";
 
@@ -9,8 +10,10 @@ export function Footer() {
     <footer className="border-t border-stone-200 bg-stone-50/50 mt-auto">
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* 版本資訊 */}
-          <VersionInfo variant="compact" />
+          {/* 版本資訊 (含錯誤邊界) */}
+          <VersionInfoErrorBoundary>
+            <VersionInfo variant="compact" />
+          </VersionInfoErrorBoundary>
 
           {/* 連結 */}
           <div className="flex items-center gap-4">
