@@ -10,17 +10,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. 資料夾/專案 (用於分類筆記)
+// 1. 資料夾/專案 (用於分類筆記) - 支援階層式結構
 model Collection {
   id          String   @id @default(cuid())
   name        String
   description String?
   userId      String   // 多用戶擴充預留 (目前可設為 default "user")
   
+  // 階層式結構 (自關聯)
+  parentId    String?
+  parent      Collection?  @relation("CollectionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Collection[] @relation("CollectionHierarchy")
+  
+  // 元數據
+  color       String?      // 資料夾顏色標記 (hex)
+  icon        String?      // 資料夾圖示 (emoji 或 icon name)
+  order       Int @default(0) // 排序順序
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   notes       Note[]   // 關聯：一個資料夾有多個筆記
+  
+  @@index([parentId])
+  @@index([userId])
 }
 
 // 2. 筆記本體

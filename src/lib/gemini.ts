@@ -1,6 +1,17 @@
 import { GoogleGenerativeAI, GoogleGenerativeAIFetchError } from "@google/generative-ai";
 import fs from "fs";
 
+// 可用的 Gemini 模型
+export const GEMINI_MODELS = {
+  FLASH_2_0: "gemini-2.0-flash-exp", // 最新的 2.0 Flash 實驗版
+  FLASH_2_0_STABLE: "gemini-2.0-flash", // 2.0 Flash 穩定版
+  PRO_1_5: "gemini-1.5-pro", // 1.5 Pro (更強大但較慢)
+  FLASH_1_5: "gemini-1.5-flash", // 1.5 Flash (舊版快速模型)
+} as const;
+
+// 從環境變數或預設選擇模型
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || GEMINI_MODELS.FLASH_2_0;
+
 // 定義 AI 服務介面
 interface AIProvider {
   generateSuggestions(text: string): Promise<any[]>;
@@ -13,11 +24,12 @@ class GeminiProvider implements AIProvider {
   private modelName: string;
   private model: any; // any, for flexibility
 
-  constructor(apiKey: string, modelName: string = "gemini-2.0-flash") {
+  constructor(apiKey: string, modelName: string = DEFAULT_MODEL) {
     this.apiKey = apiKey;
     this.modelName = modelName;
     const genAI = new GoogleGenerativeAI(this.apiKey);
     this.model = genAI.getGenerativeModel({ model: this.modelName });
+    console.log(`🤖 Gemini Provider initialized with model: ${this.modelName}`);
   }
 
   async generateSuggestions(text: string): Promise<any[]> {
@@ -62,7 +74,9 @@ if (!apiKey) {
 }
 
 const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
+
+console.log(`🚀 Gemini initialized with model: ${DEFAULT_MODEL}`);
 
 // Function to convert file to GenerativePart
 function fileToGenerativePart(path: string, mimeType: string) {
