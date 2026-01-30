@@ -13,3 +13,8 @@
  GET /notes 200 in 4.1s (compile: 3.6s, render: 441ms)
  GET /notes 200 in 84ms (compile: 4ms, render: 80ms)
  GET /search 200 in 864ms (compile: 750ms, render: 114ms)
+ GET /search 200 in 97ms (compile: 3ms, render: 94ms)
+ GET /notes 200 in 119ms (compile: 3ms, render: 116ms)
+✓ Compiled in 333ms
+✓ Compiled in 191ms
+ GET /api/search?query=test&status=COMPLETED 200 in 868ms (compile: 850ms, render: 18ms)
