@@ -1,8 +1,10 @@
 import { NotesListClient } from "@/components/notes-list-client";
 import { SearchBar } from "@/components/search-bar";
+import { DeduplicationPanel } from "@/components/deduplication-panel";
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { FileText, Image as ImageIcon, PlusCircle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +26,31 @@ export default async function AllNotesPage() {
         <SearchBar />
       </header>
 
-      <NotesListClient allNotes={allNotes} />
+      {/* Tabs for Notes List and Deduplication */}
+      <div className="flex-1 overflow-hidden">
+        <Tabs defaultValue="notes" className="h-full flex flex-col">
+          <div className="px-8 pt-4 border-b border-stone-200 bg-white/50">
+            <TabsList className="bg-stone-100">
+              <TabsTrigger value="notes">
+                <FileText className="w-4 h-4 mr-2" />
+                筆記列表
+              </TabsTrigger>
+              <TabsTrigger value="duplicates">
+                <ImageIcon className="w-4 h-4 mr-2" />
+                去重管理
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="notes" className="flex-1 overflow-hidden m-0">
+            <NotesListClient allNotes={allNotes} />
+          </TabsContent>
+
+          <TabsContent value="duplicates" className="flex-1 overflow-auto m-0 p-8">
+            <DeduplicationPanel threshold={0.85} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
