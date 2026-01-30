@@ -243,4 +243,13 @@ If you want, I can now:
 
 Tell me which of the above to implement next and I will proceed, committing and pushing each completed phase.
 
+-- Structured MCP/Integration Form
+
+Added a structured form in the Admin UI to create MCP server entries without embedding secrets. The form requires:
+- `command`: the CLI command (e.g. `npx` or `docker`)
+- `args`: space-separated arguments
+- `env var names`: a list of environment variable NAMES (uppercase, underscores), e.g. `OPENAPI_MCP_HEADERS`
+
+The Admin UI will store placeholder markers for env vars (e.g. `__ENV__OPENAPI_MCP_HEADERS__`) in the integration config; real secret values must be injected at runtime using the host/CI secrets manager. See `.mcp.example.json` for example MCP server entries.
+
 這份規劃書將隨著開發進度持續更新，作為專案進化的依據。

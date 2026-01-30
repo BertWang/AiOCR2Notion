@@ -9,6 +9,12 @@ export function AdminPanel() {
   const [settings, setSettings] = useState<any>(null);
   const [integrations, setIntegrations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // Structured form state for MCP server and Notion config
+  const [mcpCommand, setMcpCommand] = useState('npx');
+  const [mcpArgsText, setMcpArgsText] = useState('-y @notionhq/notion-mcp-server');
+  const [mcpEnvKeys, setMcpEnvKeys] = useState<string[]>(['OPENAPI_MCP_HEADERS']);
+  const [notionClientIdVar, setNotionClientIdVar] = useState('NOTION_CLIENT_ID');
+  const [notionClientSecretVar, setNotionClientSecretVar] = useState('NOTION_CLIENT_SECRET');
 
   useEffect(() => {
     fetchSettings();
@@ -89,6 +95,38 @@ export function AdminPanel() {
     }
   }
 
+  function addMcpEnvKey() {
+    setMcpEnvKeys(prev => [...prev, 'NEW_ENV_VAR']);
+  }
+
+  function updateMcpEnvKey(index: number, value: string) {
+    setMcpEnvKeys(prev => prev.map((k,i) => i === index ? value : k));
+  }
+
+  function removeMcpEnvKey(index: number) {
+    setMcpEnvKeys(prev => prev.filter((_,i) => i !== index));
+  }
+
+  function validateEnvVarName(name: string) {
+    return /^[A-Z0-9_]{3,64}$/.test(name);
+  }
+
+  async function submitMcpForm() {
+    const args = mcpArgsText.split(/\s+/).filter(Boolean);
+    // Validate env keys
+    for (const k of mcpEnvKeys) {
+      if (!validateEnvVarName(k)) {
+        toast.error(`環境變數名稱格式錯誤：${k}（請使用大寫字母/數字/下劃線）`);
+        return;
+      }
+    }
+
+    const envObj: Record<string,string> = {};
+    for (const k of mcpEnvKeys) envObj[k] = `__ENV__${k}__`;
+
+    await addMcpServer(mcpCommand, args, envObj);
+  }
+
   async function testWebhook(provider: string) {
     try {
       setLoading(true);
@@ -158,6 +196,33 @@ export function AdminPanel() {
               const exampleEnv = { OPENAPI_MCP_HEADERS: '{"Authorization": "Bearer <REPLACE_WITH_SECRET>", "Notion-Version": "2022-06-28"}' };
               addMcpServer(exampleCmd, exampleArgs, exampleEnv);
             }}>新增 MCP Server 範例</Button>
+          </div>
+          {/* Structured MCP form */}
+          <div className="p-3 border rounded bg-stone-50">
+            <div className="text-sm font-medium mb-2">手動新增 MCP Server（結構化）</div>
+            <div className="grid grid-cols-1 gap-2">
+              <label className="text-xs">Command</label>
+              <Input value={mcpCommand} onChange={(e)=>setMcpCommand(e.target.value)} />
+              <label className="text-xs">Args (空白分隔)</label>
+              <Input value={mcpArgsText} onChange={(e)=>setMcpArgsText(e.target.value)} />
+              <div>
+                <div className="text-xs">Env Var Names (只輸入變數名稱，用於在部署環境中注入真實值)</div>
+                <div className="flex flex-col gap-1 mt-1">
+                  {mcpEnvKeys.map((k, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <Input value={k} onChange={(e)=>updateMcpEnvKey(idx, e.target.value)} />
+                      <Button size="sm" onClick={()=>removeMcpEnvKey(idx)}>移除</Button>
+                    </div>
+                  ))}
+                  <div className="mt-1">
+                    <Button size="sm" onClick={addMcpEnvKey}>新增 Env 名稱</Button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={submitMcpForm}>建立 MCP Server</Button>
+              </div>
+            </div>
           </div>
           {integrations.map(integration => (
             <div key={integration.id} className="flex items-center justify-between py-2">
