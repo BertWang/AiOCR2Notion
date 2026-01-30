@@ -88,6 +88,31 @@ export function AdminPanel() {
     } finally { setLoading(false); }
   }
 
+  async function connectNotion(integrationId: string) {
+    try {
+      const res = await fetch(`/api/integrations/notion/connect?integrationId=${integrationId}`);
+      // The connect route redirects; in client fetch we will get a redirect response.
+      // Prefer direct navigation to the connect endpoint so the browser follows redirect.
+      window.location.href = `/api/integrations/notion/connect?integrationId=${integrationId}`;
+    } catch (e) {
+      console.error(e);
+      toast.error('無法啟動 Notion 連線');
+    }
+  }
+
+  async function disconnectNotion(integrationId: string) {
+    try {
+      const res = await fetch('/api/integrations', { method: 'PUT', body: JSON.stringify({ id: integrationId, enabled: false, config: {} }) });
+      if (!res.ok) throw new Error('disconnect failed');
+      const updated = await res.json();
+      setIntegrations(prev => prev.map(i => i.id === updated.id ? updated : i));
+      toast.success('Notion 已中斷連線');
+    } catch (e) {
+      console.error(e);
+      toast.error('斷線失敗');
+    }
+  }
+
   return (
     <div className="p-6 bg-white rounded-lg shadow">
       <h3 className="text-lg font-bold mb-4">後台：AI 與整合設定</h3>
@@ -128,6 +153,13 @@ export function AdminPanel() {
                   <Button size="sm" onClick={()=>testWebhook(integration.provider)}>
                     測試 Webhook
                   </Button>
+                  {integration.provider === 'notion' && (
+                    integration.config && integration.config.access_token ? (
+                      <Button size="sm" onClick={()=>disconnectNotion(integration.id)}>Disconnect</Button>
+                    ) : (
+                      <Button size="sm" onClick={()=>connectNotion(integration.id)}>Connect Notion</Button>
+                    )
+                  )}
                 </div>
               </div>
             </div>
