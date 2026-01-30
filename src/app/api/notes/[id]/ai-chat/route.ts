@@ -103,12 +103,30 @@ ${conversationContext ? `**對話歷史**:\n${conversationContext}\n\n` : ""}**�
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    let aiResponse: string;
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+      const model = genAI.getGenerativeModel({ model: modelName });
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const aiResponse = response.text();
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      aiResponse = response.text();
+
+      if (!aiResponse?.trim()) {
+        return NextResponse.json(
+          { error: "Empty response from AI service" },
+          { status: 502 }
+        );
+      }
+    } catch (aiError) {
+      console.error("Gemini API Error:", aiError);
+      const errorMessage = aiError instanceof Error ? aiError.message : "Unknown AI error";
+      return NextResponse.json(
+        { error: `AI service error: ${errorMessage}` },
+        { status: 503 }
+      );
+    }
 
     // 保存 AI 回應
     const assistantMessage = await prisma.chatMessage.create({
@@ -128,8 +146,13 @@ ${conversationContext ? `**對話歷史**:\n${conversationContext}\n\n` : ""}**�
     });
   } catch (error) {
     console.error("AI Chat Error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to process chat message" },
+      { 
+        error: "Failed to process chat message",
+        details: errorMessage,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }

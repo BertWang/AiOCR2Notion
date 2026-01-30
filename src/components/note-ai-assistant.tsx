@@ -101,7 +101,10 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to send message");
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || `HTTP ${response.status}`;
+        const details = errorData.details ? ` (${errorData.details})` : "";
+        throw new Error(`Failed to send message: ${errorMessage}${details}`);
       }
 
       const data = await response.json();
@@ -121,7 +124,10 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
       );
     } catch (error) {
       console.error("Send message error:", error);
-      toast.error("發送訊息失敗");
+      const errorMessage = error instanceof Error ? error.message : "發送訊息失敗";
+      toast.error(errorMessage, {
+        description: "請檢查網路連接或稍後重試",
+      });
       // 移除臨時訊息
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
     } finally {
