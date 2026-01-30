@@ -82,9 +82,17 @@ export function getVersionInfo(): VersionInfo {
 
 /**
  * 格式化版本資訊為易讀字串
+ * 使用 ISO 格式確保伺服器和客戶端的一致性
  */
 export function formatVersionInfo(info: VersionInfo): string {
-  return `v${info.version} | ${info.environment} | ${new Date(info.buildTime).toLocaleDateString()}`;
+  // 統一日期格式：YYYY/M/D (避免 locale 差異)
+  const date = new Date(info.buildTime);
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + 1;
+  const day = date.getUTCDate();
+  const formattedDate = `${year}/${month}/${day}`;
+  
+  return `v${info.version} | ${info.environment} | ${formattedDate}`;
 }
 
 /**

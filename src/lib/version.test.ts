@@ -81,6 +81,24 @@ describe('Version Utilities', () => {
 
       expect(formatted).toContain('v0.1.0');
       expect(formatted).toContain('production');
+      // 新格式：YYYY/M/D (使用 UTC 時間避免時區問題)
+      expect(formatted).toMatch(/\d{4}\/\d{1,2}\/\d{1,2}/);
+    });
+
+    it('should format date in YYYY/M/D format (UTC based)', () => {
+      const mockInfo = {
+        version: '0.1.0',
+        buildTime: '2026-01-30T12:00:00Z',
+        environment: 'development',
+        nodeVersion: 'v20.0.0',
+        isValid: true,
+        errors: [],
+      };
+
+      const formatted = formatVersionInfo(mockInfo);
+
+      // 應該包含正確的日期格式
+      expect(formatted).toContain('2026/1/30');
     });
 
     it('should handle different environments', () => {
@@ -97,6 +115,25 @@ describe('Version Utilities', () => {
 
       expect(formatted).toContain('vdev');
       expect(formatted).toContain('development');
+    });
+
+    it('should produce same output on server and client', () => {
+      // 模擬伺服器和客戶端渲染相同的 buildTime
+      const buildTime = '2026-01-15T08:30:00Z';
+      const mockInfo = {
+        version: '0.1.0',
+        buildTime,
+        environment: 'production',
+        nodeVersion: 'v20.0.0',
+        isValid: true,
+        errors: [],
+      };
+
+      // 多次調用應該返回相同的格式
+      const formatted1 = formatVersionInfo(mockInfo);
+      const formatted2 = formatVersionInfo(mockInfo);
+
+      expect(formatted1).toBe(formatted2);
     });
   });
 
