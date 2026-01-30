@@ -4,7 +4,7 @@ import { unlink } from "fs/promises";
 import path from "path";
 import { revalidatePath } from 'next/cache';
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params; // 正確解構 await params
 
@@ -21,7 +21,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
 
-    // 2. 從資料庫刪除筆記記錄\n    await prisma.note.delete({
+    // 2. 從資料庫刪除筆記記錄
+    await prisma.note.delete({
       where: { id },
     });
 
@@ -49,7 +50,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 }
 
 // PUT API: 更新單個筆記內容
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const { content, tags } = await request.json(); // 獲取更新後的內容與標籤
