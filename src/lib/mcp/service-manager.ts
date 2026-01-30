@@ -19,6 +19,17 @@ import { SessionManager } from './session-manager';
 import { RetryExecutor, RETRY_POLICIES } from './retry-policy';
 import { RateLimiter, RateLimitError } from './rate-limiter';
 
+// 導入所有服務客戶端
+import { BraveSearchClient } from './services/brave-search-client';
+import { GiBaseMCPServiceClientbClient } from './services/github-client';
+import { SlackClient } from './services/slack-client';
+import { FilesystemClient } from './services/filesystem-client';
+import { SQLiteClient } from './services/sqlite-client';
+import { WebCrawlerClient } from './services/webcrawler-client';
+import { OpenClawClient } from './services/openclaw-client';
+import { GoogleDriveClient } from './services/google-drive-client';
+import { BaseMCPServiceClient } from './services/base-client';
+
 interface ServiceInstance {
   config: MCPServiceConfig;
   client?: any;
@@ -114,8 +125,12 @@ export class MCPServiceManager extends EventEmitter {
       throw new MCPError('INVALID_CONFIG', 'Service config must have id and type');
     }
 
+    // 創建對應的服務客戶端
+    const client = this.createServiceClient(config.type);
+
     const instance: ServiceInstance = {
       config,
+      client,
       connected: false,
       lastHealthCheck: new Date(0),
       metrics: {
@@ -130,6 +145,32 @@ export class MCPServiceManager extends EventEmitter {
 
     this.services.set(config.id, instance);
     this.log('debug', `Service registered: ${config.id} (${config.type})`);
+  }
+
+  /**
+   * 創建服務客戶端
+   */
+  private createServiceClient(type: MCPServiceType): BaseMCPServiceClient {
+    switch (type) {
+      case 'openclaw':
+        return new OpenClawClient();
+      case 'brave_search':
+        return new BraveSearchClient();
+      case 'github':
+        return new GitHubClient();
+      case 'slack':
+        return new SlackClient();
+      case 'google_drive':
+        return new GoogleDriveClient();
+      case 'web_crawler':
+        return new WebCrawlerClient();
+      case 'sqlite':
+        return new SQLiteClient();
+      case 'filesystem':
+        return new FilesystemClient();
+      default:
+        throw new MCPError('UNKNOWN_SERVICE_TYPE', `Unknown service type: ${type}`);
+    }
   }
 
   /**
@@ -152,8 +193,11 @@ export class MCPServiceManager extends EventEmitter {
     instance.config = { ...instance.config, ...updates };
 
     if (instance.connected) {
-      // 重新連接以應用新配置
-      await this.disconnect(serviceId);
+      // 使用實際的客戶端連接
+      if (instance.client) {
+        await instance.client.connect(instance.config);
+      }
+disconnect(serviceId);
       await this.connect(serviceId);
     }
 
@@ -226,6 +270,11 @@ export class MCPServiceManager extends EventEmitter {
 
     try {
       this.log('debug', `Disconnecting from service: ${serviceId}`);
+
+      // 使用實際的客戶端斷開連接
+      if (instance.client) {
+        await instance.client.disconnect();
+      }
 
       // 清理會話和連接
       this.sessionManager.destroyServiceSessions(instance.config.type);
@@ -346,7 +395,17 @@ export class MCPServiceManager extends EventEmitter {
     action: string,
     input: any
   ): Promise<MCPOperationResult> {
-    // 模擬操作 - 實際實現應調用服務客戶端
+    if (!instance.client) {
+      throw new MCPError('NO_CLIENT', 'Service client not initialized');
+    }
+
+    if (!instance.connected) {
+      await this.connect(instance.config.id);
+    }
+
+    // 使用實際的客戶端執行操作
+    const result = await instance.client.execute(action as any, input);
+
     return {
       success: true,
       status: 'success',

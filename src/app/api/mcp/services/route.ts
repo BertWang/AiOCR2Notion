@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { MCPServiceConfig } from '@/lib/mcp/types';
+import { MCPServiceConfig, MCPServiceType } from '@/lib/mcp/types';
 import { getServiceManager } from '@/lib/mcp';
 
 /**
@@ -134,6 +134,13 @@ export async function POST(request: NextRequest) {
         name: true,
         type: true,
         enabled: true,
+        endpoint: true,
+        authType: true,
+        credentials: true,
+        config: true,
+        retryPolicy: true,
+        rateLimitPerMinute: true,
+        timeoutMs: true,
         createdAt: true,
       },
     });
@@ -141,7 +148,21 @@ export async function POST(request: NextRequest) {
     // 初始化服務（在 ServiceManager 中註冊）
     try {
       const manager = getServiceManager();
-      await manager.registerService(service as MCPServiceConfig);
+      // 將數據庫記錄轉換為 MCPServiceConfig
+      const configForManager: MCPServiceConfig = {
+        id: service.id,
+        name: service.name,
+        type: service.type as MCPServiceType,
+        enabled: service.enabled,
+        endpoint: service.endpoint || undefined,
+        authType: (service.authType as any) || undefined,
+        credentials: service.credentials || undefined,
+        config: service.config ? (typeof service.config === 'string' ? JSON.parse(service.config) : service.config) : undefined,
+        retryPolicy: (service.retryPolicy as any) || 'moderate',
+        rateLimitPerMinute: service.rateLimitPerMinute || 60,
+        timeoutMs: service.timeoutMs || 30000,
+      };
+      await manager.registerService(configForManager);
     } catch (error) {
       console.error('[MCP API] Failed to register service in manager:', error);
     }
