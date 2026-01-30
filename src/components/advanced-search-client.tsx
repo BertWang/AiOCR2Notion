@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Search, X, Loader2, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { SearchSuggestions } from "./search-suggestions";
 
 interface SearchResult {
   id: string;
@@ -29,6 +30,9 @@ export function AdvancedSearchClient() {
   const [showFilters, setShowFilters] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isPending, startTransition] = useTransition();
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSearch = () => {
     if (!query.trim() && !dateFrom && !dateTo && !confidenceMin && !confidenceMax && status === "all") {
@@ -72,6 +76,100 @@ export function AdvancedSearchClient() {
     setConfidenceMax("");
     setStatus("all");
     setResults([]);
+    setIsSuggestionsOpen(false);
+    setSelectedSuggestionIndex(-1);
+  };
+
+  const handleSelectSuggestion = (suggestion: string) => {
+    setQuery(suggestion);
+    setIsSuggestionsOpen(false);
+    setSelectedSuggestionIndex(-1);
+    // Auto-trigger search if suggestion is meaningful
+    if (suggestion.length >= 2) {
+      // Set query first, then trigger search in next tick
+      setTimeout(() => {
+        const params = new URLSearchParams();
+        params.append("query", suggestion);
+        if (dateFrom) params.append("dateFrom", dateFrom);
+        if (dateTo) params.append("dateTo", dateTo);
+        if (confidenceMin) params.append("confidenceMin", confidenceMin);
+        if (confidenceMax) params.append("confidenceMax", confidenceMax);
+        if (status !== "all") params.append("status", status);
+
+        startTransition(async () => {
+          try {
+            const response = await fetch(`/api/search?${params.toString()}`);
+            if (!response.ok) throw new Error("搜尋失敗");
+            const data: SearchResult[] = await response.json();
+            setResults(data);
+            if (data.length === 0) {
+              toast.info("未找到符合條件的筆記");
+            } else {
+              toast.success(`找到 ${data.length} 份筆記`);
+            }
+          } catch (error) {
+            console.error("Search error:", error);
+            toast.error("搜尋失敗，請稍後重試");
+          }
+        });
+      }, 100);
+    }
+  };
+
+  const handleInputChange = (value: string) => {
+    setQuery(value);
+    setSelectedSuggestionIndex(-1);
+    // Open suggestions when user types
+    if (value.trim()) {
+      setIsSuggestionsOpen(true);
+    } else {
+      setIsSuggestionsOpen(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isSuggestionsOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setIsSuggestionsOpen(true);
+        setSelectedSuggestionIndex(0);
+      } else if (e.key === "Enter") {
+        handleSearch();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedSuggestionIndex((prev) => prev + 1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedSuggestionIndex((prev) => Math.max(-1, prev - 1));
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (query.trim()) {
+          handleSearch();
+          setIsSuggestionsOpen(false);
+        }
+        break;
+      case "Escape":
+        e.preventDefault();
+        setIsSuggestionsOpen(false);
+        setSelectedSuggestionIndex(-1);
+        inputRef.current?.blur();
+        break;
+    }
+  };
+
+  const handleKeyNavigate = (direction: "up" | "down") => {
+    if (direction === "down") {
+      setSelectedSuggestionIndex((prev) => prev + 1);
+    } else {
+      setSelectedSuggestionIndex((prev) => Math.max(-1, prev - 1));
+    }
   };
 
   const highlightText = (text: string, highlight: string) => {
@@ -89,14 +187,30 @@ export function AdvancedSearchClient() {
       <div className="px-6 py-4 bg-white border-b border-stone-200 space-y-4">
         {/* Main Search Bar with Helper Text */}
         <div className="flex gap-2 items-center">
-          <div className="flex-1 flex gap-2">
-            <Input
-              placeholder="搜尋筆記內容、摘要、標籤..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="flex-1"
-            />
+          <div className="flex-1 flex gap-2 relative">
+            <div className="flex-1 relative">
+              <Input
+                ref={inputRef}
+                placeholder="搜尋筆記內容、摘要、標籤..."
+                value={query}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setIsSuggestionsOpen(true)}
+                className="flex-1"
+                autoComplete="off"
+                aria-autocomplete="list"
+                aria-controls="search-suggestions"
+                aria-expanded={isSuggestionsOpen}
+              />
+              <SearchSuggestions
+                query={query}
+                isOpen={isSuggestionsOpen}
+                onSelectSuggestion={handleSelectSuggestion}
+                onClose={() => setIsSuggestionsOpen(false)}
+                selectedIndex={selectedSuggestionIndex}
+                onKeyNavigate={handleKeyNavigate}
+              />
+            </div>
             <Button
               onClick={handleSearch}
               disabled={isPending}
@@ -112,7 +226,7 @@ export function AdvancedSearchClient() {
               <Filter className="w-4 h-4" />
             </Button>
           </div>
-          <span className="text-xs text-stone-400 whitespace-nowrap px-2">輸入 2 個字符開始搜尋</span>
+          <span className="text-xs text-stone-400 whitespace-nowrap px-2">輸入關鍵字或按 ↓ 查看建議</span>
         </div>
 
         {/* Advanced Filters */}
