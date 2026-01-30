@@ -73,3 +73,32 @@ model Integration {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
+
+// 4. 搜尋歷史 (Search History)
+model SearchHistory {
+  id        String   @id @default(cuid())
+  query     String   // 搜尋查詢字符串
+  filters   String?  // JSON 格式的篩選條件 (dateFrom, dateTo, status, etc.)
+  resultCount Int    @default(0) // 返回結果數量
+  userId    String?  // 用戶 ID (多用戶支援預留)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId, createdAt])
+}
+
+// 5. 保存的搜尋 (Saved Searches)
+model SavedSearch {
+  id          String   @id @default(cuid())
+  name        String   // 保存搜尋的名稱 (例如: "重要筆記", "本月工作")
+  query       String   // 搜尋查詢字符串
+  filters     String?  // JSON 格式的篩選條件
+  description String?  // 搜尋描述
+  userId      String?  // 用戶 ID (多用戶支援預留)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+}

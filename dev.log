@@ -29,3 +29,11 @@
  GET /notes 200 in 85ms (compile: 3ms, render: 82ms)
  GET /search 200 in 62ms (compile: 4ms, render: 58ms)
 ✓ Compiled in 74ms
+ GET /search 200 in 227ms (compile: 34ms, render: 194ms)
+ GET /notes 200 in 92ms (compile: 3ms, render: 89ms)
+ GET /search 200 in 69ms (compile: 3ms, render: 66ms)
+ GET /search 200 in 67ms (compile: 5ms, render: 62ms)
+ GET /notes 200 in 82ms (compile: 3ms, render: 79ms)
+ GET /collections 404 in 56ms (compile: 3ms, render: 53ms)
+ GET /search 200 in 93ms (compile: 3ms, render: 89ms)
+ GET /notes 200 in 71ms (compile: 2ms, render: 68ms)
