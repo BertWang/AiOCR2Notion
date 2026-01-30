@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getVersionInfo, formatVersionInfo } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { Copy, Check, Info } from "lucide-react";
@@ -14,7 +14,12 @@ interface VersionInfoProps {
 
 export function VersionInfo({ variant = "compact", className }: VersionInfoProps) {
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const versionInfo = getVersionInfo();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleCopy = async () => {
     const text = variant === "compact" 
@@ -96,13 +101,17 @@ export function VersionInfo({ variant = "compact", className }: VersionInfoProps
         <div className="flex items-center justify-between py-2 border-b border-stone-100">
           <span className="text-sm text-stone-600 font-medium">構建時間</span>
           <span className="text-sm font-mono text-stone-700">
-            {new Date(versionInfo.buildTime).toLocaleString("zh-TW", {
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {mounted ? (
+              new Date(versionInfo.buildTime).toLocaleString("zh-TW", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            ) : (
+              versionInfo.buildTime
+            )}
           </span>
         </div>
 

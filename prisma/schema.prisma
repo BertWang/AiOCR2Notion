@@ -56,6 +56,10 @@ model Note {
   summary        String?  // AI 自動生成的摘要
   tags           String?   // 標籤 (SQLite 不支援 String[]，使用逗號分隔字串儲存，如 "tag1,tag2")
 
+  // MCP 相關欄位
+  mcpServicesUsed String? // 使用過的 MCP 服務列表 (JSON 格式)
+  mcpMetadata     String? // MCP 操作結果元數據 (JSON 格式)
+
   // 狀態管理
   status         String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
   errorMessage   String?  // 若失敗，記錄原因
@@ -63,6 +67,9 @@ model Note {
   // 關聯
   collectionId   String?
   collection     Collection? @relation(fields: [collectionId], references: [id])
+  
+  // MCP 同步日誌關聯
+  mcpSyncLogs    MCPSyncLog[]
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -128,4 +135,97 @@ model ChatMessage {
   updatedAt DateTime @updatedAt
   
   @@index([noteId, createdAt])
+}
+
+// ============ MCP 相關模型 ============
+
+// 7. MCP 服務配置 (MCP Service Configuration)
+model MCPServiceConfig {
+  id                  String   @id @default(cuid())
+  name                String   // 服務名稱 (例如: "OpenClaw 分析")
+  type                String   // 服務類型 (openclaw, brave_search, github, slack 等)
+  enabled             Boolean  @default(false)
+  
+  // 連接信息
+  endpoint            String?  // API 端點 (可選)
+  
+  // 認證信息 (加密存儲)
+  authType            String?  // api_key, oauth, jwt, basic
+  credentials         String?  // 加密的認證憑證 (JSON 格式)
+  
+  // 服務特定配置
+  config              String?  // 服務特定配置 (JSON 格式)
+  
+  // 性能和限制設置
+  retryPolicy         String?  // 重試策略 (exponential, linear, none)
+  rateLimitPerMinute  Int?     // 每分鐘速率限制
+  timeoutMs           Int?     // 超時設置 (毫秒)
+  
+  // 優先級和狀態
+  priority            Int      @default(0)
+  isRequired          Boolean  @default(false) // 是否為必需服務
+  
+  // 元數據
+  description         String?  // 服務描述
+  lastTestedAt        DateTime? // 上次測試時間
+  lastTestStatus      String?  // 上次測試結果 (success, failed)
+  lastTestError       String?  // 上次測試錯誤訊息
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@unique([name])
+  @@index([type])
+  @@index([enabled])
+}
+
+// 8. MCP 同步日誌 (MCP Sync Log)
+model MCPSyncLog {
+  id                  String   @id @default(cuid())
+  
+  // 關聯信息
+  noteId              String
+  note                Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  
+  serviceName         String   // 服務名稱
+  action              String   // 操作類型 (process, extract, sync, notify 等)
+  status              String   // 狀態 (pending, processing, success, failed)
+  
+  // 輸入和輸出
+  input               String?  // 輸入數據 (JSON 格式)
+  output              String?  // 輸出數據 (JSON 格式)
+  error               String?  // 錯誤信息
+  
+  // 性能指標
+  executionTimeMs     Int?     // 執行時間 (毫秒)
+  
+  // 重試信息
+  retryCount          Int      @default(0)
+  lastRetryAt         DateTime?
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@index([noteId])
+  @@index([serviceName])
+  @@index([status])
+  @@index([createdAt])
+  @@index([noteId, serviceName])
+}
+
+// 9. MCP 快取 (MCP Cache) - 可選，用於存儲頻繁查詢的結果
+model MCPCache {
+  id                  String   @id @default(cuid())
+  
+  serviceName         String   // 服務名稱
+  cacheKey            String   // 快取鍵值 (由查詢參數生成)
+  cachedData          String   // 快取數據 (JSON 格式)
+  
+  expiresAt           DateTime // 快取過期時間
+  
+  createdAt           DateTime @default(now())
+  
+  @@unique([serviceName, cacheKey])
+  @@index([expiresAt])
+  @@index([serviceName])
 }

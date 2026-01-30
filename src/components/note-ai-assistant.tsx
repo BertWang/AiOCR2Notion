@@ -42,17 +42,49 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [streamEnabled, setStreamEnabled] = useState(true);
   const [enabledMCPServers, setEnabledMCPServers] = useState<string[]>(["search"]);
+  
+  // 新增：錯誤和超時狀態
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+  const [isTimeoutWarning, setIsTimeoutWarning] = useState(false);
+  const [loadingTime, setLoadingTime] = useState(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const loadingStartTimeRef = useRef<number>(0);
 
   // 獲取建議
   const fetchSuggestions = useCallback(async () => {
     setIsLoadingSuggestions(true);
+    setSuggestionsError(null);
+    setIsTimeoutWarning(false);
+    loadingStartTimeRef.current = Date.now();
+    
+    // 設定超時警告計時器（45秒）
+    const timeoutWarningTimer = setTimeout(() => {
+      setIsTimeoutWarning(true);
+    }, 45000);
+
     try {
       const response = await fetch(`/api/notes/${noteId}/ai-suggestions`, {
         method: "POST",
       });
 
+      clearTimeout(timeoutWarningTimer);
+
       if (!response.ok) {
-        throw new Error("Failed to fetch suggestions");
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.details || errorData.error || `HTTP ${response.status}`;
+        
+        // 根據狀態碼提供更清楚的錯誤訊息
+        let userMessage = errorMessage;
+        if (response.status === 429) {
+          userMessage = "AI 服務暫時繁忙，請稍後重試";
+        } else if (response.status === 408) {
+          userMessage = "建議生成超時，請檢查您的網路連接後重試";
+        } else if (response.status === 503) {
+          userMessage = "AI 服務暫時不可用，請稍後重試";
+        }
+        
+        throw new Error(userMessage);
       }
 
       const data = await response.json();
@@ -60,9 +92,15 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
       toast.success("智能建議已生成");
     } catch (error) {
       console.error("Fetch suggestions error:", error);
-      toast.error("生成建議失敗");
+      const message = error instanceof Error ? error.message : "生成建議失敗";
+      setSuggestionsError(message);
+      toast.error("生成建議失敗", {
+        description: message
+      });
     } finally {
       setIsLoadingSuggestions(false);
+      setIsTimeoutWarning(false);
+      clearTimeout(timeoutWarningTimer);
     }
   }, [noteId]);
 
@@ -102,6 +140,9 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
 
     const userMessage = inputValue;
     setInputValue("");
+    setChatError(null);
+    setIsTimeoutWarning(false);
+    loadingStartTimeRef.current = Date.now();
 
     // 樂觀更新 UI
     const tempUserMessage: ChatMessage = {
@@ -114,6 +155,19 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
     setMessages((prev) => [...prev, tempUserMessage]);
     setIsLoadingChat(true);
 
+    // 設定超時警告計時器（45秒）
+    const timeoutWarningTimer = setTimeout(() => {
+      setIsTimeoutWarning(true);
+    }, 45000);
+
+    // 設定最終超時（70秒）
+    const finalTimeoutTimer = setTimeout(() => {
+      abortControllerRef.current?.abort();
+      setIsLoadingChat(false);
+      setChatError("請求超時，請稍後重試");
+      toast.error("請求超時");
+    }, 70000);
+
     try {
       const response = await fetch(`/api/notes/${noteId}/ai-chat`, {
         method: "POST",
@@ -121,11 +175,24 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
         body: JSON.stringify({ message: userMessage }),
       });
 
+      clearTimeout(timeoutWarningTimer);
+      clearTimeout(finalTimeoutTimer);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error || `HTTP ${response.status}`;
-        const details = errorData.details ? ` (${errorData.details})` : "";
-        throw new Error(`Failed to send message: ${errorMessage}${details}`);
+        const errorMessage = errorData.details || errorData.error || `HTTP ${response.status}`;
+        
+        // 根據狀態碼提供更清楚的錯誤訊息
+        let userFriendlyMessage = errorMessage;
+        if (response.status === 429) {
+          userFriendlyMessage = "AI 服務暫時繁忙，請稍後重試";
+        } else if (response.status === 408) {
+          userFriendlyMessage = "回應超時，請檢查網路連接後重試";
+        } else if (response.status === 503) {
+          userFriendlyMessage = "AI 服務暫時不可用，請稍後重試";
+        }
+        
+        throw new Error(userFriendlyMessage);
       }
 
       const data = await response.json();
@@ -143,16 +210,25 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
           },
         ])
       );
+
+      // 記錄處理時間
+      if (data.metadata?.processingTime) {
+        console.log(`AI chat processed in ${data.metadata.processingTime}ms`);
+      }
     } catch (error) {
       console.error("Send message error:", error);
       const errorMessage = error instanceof Error ? error.message : "發送訊息失敗";
-      toast.error(errorMessage, {
-        description: "請檢查網路連接或稍後重試",
+      setChatError(errorMessage);
+      toast.error("訊息發送失敗", {
+        description: errorMessage
       });
       // 移除臨時訊息
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
     } finally {
       setIsLoadingChat(false);
+      setIsTimeoutWarning(false);
+      clearTimeout(timeoutWarningTimer);
+      clearTimeout(finalTimeoutTimer);
     }
   }, [inputValue, noteId]);
 
@@ -166,6 +242,23 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
     } catch (error) {
       toast.error("複製失敗");
     }
+  }, []);
+
+  // 取消請求
+  const handleCancelMessage = useCallback(() => {
+    abortControllerRef.current?.abort();
+    setIsLoadingChat(false);
+    setChatError("已取消");
+    toast.info("已取消請求");
+  }, []);
+
+  // 清除錯誤
+  const clearChatError = useCallback(() => {
+    setChatError(null);
+  }, []);
+
+  const clearSuggestionsError = useCallback(() => {
+    setSuggestionsError(null);
   }, []);
 
   // 格式化時間戳記
@@ -192,6 +285,22 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
 
         {/* 智能建議 Tab */}
         <TabsContent value="suggestions" className="flex-1 flex flex-col gap-4">
+          {/* 錯誤提示 */}
+          {suggestionsError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-start justify-between">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{suggestionsError}</span>
+              </div>
+              <button
+                onClick={clearSuggestionsError}
+                className="text-red-400 hover:text-red-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <Button
             onClick={fetchSuggestions}
             disabled={isLoadingSuggestions}
@@ -263,6 +372,41 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
             onTtsChange={setTtsEnabled}
             onStreamChange={setStreamEnabled}
           />
+
+          {/* 錯誤提示 */}
+          {chatError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-start justify-between">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{chatError}</span>
+              </div>
+              <button
+                onClick={clearChatError}
+                className="text-red-400 hover:text-red-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* 超時警告 */}
+          {isTimeoutWarning && isLoadingChat && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-700 flex items-start justify-between">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium">AI 回應較慢</p>
+                  <p className="text-xs mt-1 opacity-75">已等待超過 45 秒，您可以取消請求</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCancelMessage}
+                className="text-yellow-600 hover:text-yellow-800 font-medium underline ml-2 whitespace-nowrap"
+              >
+                取消
+              </button>
+            </div>
+          )}
 
           <ScrollArea className="flex-1 border border-stone-200 rounded-lg bg-stone-50/30">
             <div className="p-4 space-y-4">
@@ -349,11 +493,22 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
 
               {/* 載入狀態 */}
               {isLoadingChat && (
-                <div className="flex justify-start gap-2">
+                <div className="flex justify-start gap-2 flex-col">
                   <div className="bg-white border border-stone-200 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin text-stone-400" />
                     <span className="text-sm text-stone-500">AI 正在思考中...</span>
                   </div>
+                  {isTimeoutWarning && (
+                    <div className="px-4 py-2 text-xs text-stone-500 flex items-center gap-2">
+                      <span>⏱️ 已等待 {Math.floor((Date.now() - loadingStartTimeRef.current) / 1000)} 秒</span>
+                      <button
+                        onClick={handleCancelMessage}
+                        className="text-blue-600 hover:text-blue-800 underline"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -397,18 +552,25 @@ export function NoteAIAssistant({ noteId }: { noteId: string }) {
               disabled={isLoadingChat}
               className="flex-1 text-sm border-0 focus-visible:ring-0 resize-none"
             />
-            <Button
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isLoadingChat}
-              size="sm"
-              className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg shrink-0"
-            >
-              {isLoadingChat ? (
+            {isLoadingChat ? (
+              <Button
+                onClick={handleCancelMessage}
+                size="sm"
+                variant="destructive"
+                className="text-white rounded-lg shrink-0"
+              >
                 <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSendMessage}
+                disabled={!inputValue.trim()}
+                size="sm"
+                className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg shrink-0"
+              >
                 <Send className="w-4 h-4" />
-              )}
-            </Button>
+              </Button>
+            )}
           </div>
         </TabsContent>
       </Tabs>

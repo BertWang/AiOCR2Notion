@@ -62,6 +62,12 @@ export function SettingsWizard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newIntegration, setNewIntegration] = useState({
+    provider: "",
+    enabled: true,
+    config: {} as Record<string, string>,
+  });
 
   // 使用 openclaw.ai 分析
   const { analysis, loading: analysisLoading } = useOpenClawAnalysis({
@@ -151,6 +157,37 @@ export function SettingsWizard() {
     } catch (e) {
       console.error(e);
       toast.error("刪除失敗");
+    }
+  }
+
+  async function addIntegration() {
+    if (!newIntegration.provider.trim()) {
+      toast.error("請填寫服務提供商");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const res = await fetch("/api/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newIntegration),
+      });
+      if (!res.ok) throw new Error("add failed");
+      const created = await res.json();
+      setIntegrations((prev) => [...prev, created]);
+      toast.success("整合已新增");
+      setShowAddDialog(false);
+      setNewIntegration({
+        provider: "",
+        enabled: true,
+        config: {},
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("新增失敗");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -438,7 +475,11 @@ export function SettingsWizard() {
                 </div>
               )}
 
-              <Button className="w-full gap-2" variant="outline">
+              <Button 
+                className="w-full gap-2" 
+                variant="outline"
+                onClick={() => setShowAddDialog(true)}
+              >
                 <ChevronRight className="w-4 h-4" />
                 新增整合服務
               </Button>
@@ -630,6 +671,112 @@ export function SettingsWizard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Add Integration Dialog */}
+      <AlertDialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>新增整合服務</AlertDialogTitle>
+            <AlertDialogDescription>
+              連接第三方服務或 MCP 伺服器到您的筆記系統
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Provider Name */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-stone-700">
+                服務提供商 <span className="text-red-500">*</span>
+              </label>
+              <Input
+                placeholder="例如: Notion, Slack, OpenClaw"
+                value={newIntegration.provider}
+                onChange={(e) =>
+                  setNewIntegration({
+                    ...newIntegration,
+                    provider: e.target.value,
+                  })
+                }
+                className="w-full"
+              />
+            </div>
+
+            {/* Config Fields */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-stone-700">
+                配置參數 (可選)
+              </label>
+              <div className="space-y-2">
+                <Input
+                  placeholder="端點 URL (例如: https://api.example.com)"
+                  value={newIntegration.config.endpoint || ""}
+                  onChange={(e) =>
+                    setNewIntegration({
+                      ...newIntegration,
+                      config: {
+                        ...newIntegration.config,
+                        endpoint: e.target.value,
+                      },
+                    })
+                  }
+                  className="w-full"
+                />
+                <Input
+                  type="password"
+                  placeholder="API 金鑰 (可選)"
+                  value={newIntegration.config.apiKey || ""}
+                  onChange={(e) =>
+                    setNewIntegration({
+                      ...newIntegration,
+                      config: {
+                        ...newIntegration.config,
+                        apiKey: e.target.value,
+                      },
+                    })
+                  }
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            {/* Enable Toggle */}
+            <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+              <span className="text-sm font-medium text-stone-700">
+                立即啟用
+              </span>
+              <input
+                type="checkbox"
+                checked={newIntegration.enabled}
+                onChange={(e) =>
+                  setNewIntegration({
+                    ...newIntegration,
+                    enabled: e.target.checked,
+                  })
+                }
+                className="w-4 h-4 cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <AlertDialogCancel disabled={saving}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={addIntegration}
+              disabled={saving || !newIntegration.provider.trim()}
+              className="gap-2"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  處理中...
+                </>
+              ) : (
+                <>新增服務</>
+              )}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
