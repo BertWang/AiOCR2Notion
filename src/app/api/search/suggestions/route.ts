@@ -26,13 +26,11 @@ export async function GET(request: NextRequest) {
             {
               summary: {
                 contains: searchQuery,
-                mode: "insensitive",
               },
             },
             {
               refinedContent: {
                 contains: searchQuery,
-                mode: "insensitive",
               },
             },
           ],
@@ -52,7 +50,6 @@ export async function GET(request: NextRequest) {
           where: {
             tags: {
               contains: searchQuery,
-              mode: "insensitive",
             },
           },
           select: { tags: true },

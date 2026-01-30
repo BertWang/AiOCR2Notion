@@ -113,8 +113,8 @@ export async function processNoteWithGemini(filePath: string, mimeType: string =
         console.error("Raw Gemini text:", text);
         const fallbackRawOcr = text.substring(0, Math.min(200, text.length));
         const fallbackRefinedContent = fallbackRawOcr;
-        const fallbackSummary = \"AI 內容解析失敗\";
-        const fallbackTags = [\"failed-parse\"];
+        const fallbackSummary = "AI 內容解析失敗";
+        const fallbackTags = ["failed-parse"];
         const fallbackConfidence = 0.1; 
         
         return {
@@ -132,7 +132,8 @@ export async function processNoteWithGemini(filePath: string, mimeType: string =
         console.warn(`Gemini API rate limit hit. Retrying in ${delay / 1000}s... (Attempt ${retries}/${MAX_RETRIES})`);
         await new Promise(resolve => setTimeout(resolve, delay));
       } else {
-        throw error; // Other errors are re-thrown immediately\n      }
+        throw error; // Other errors are re-thrown immediately
+      }
     }
   }
   throw new Error("Gemini API processing failed after multiple retries due to rate limits.");
