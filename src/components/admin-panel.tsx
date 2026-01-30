@@ -62,6 +62,32 @@ export function AdminPanel() {
     }
   }
 
+  async function addIntegration(provider: string) {
+    try {
+      const res = await fetch('/api/integrations', { method: 'POST', body: JSON.stringify({ provider, enabled: false, config: {} }) });
+      if (!res.ok) throw new Error('create failed');
+      const created = await res.json();
+      setIntegrations(prev => [created, ...prev]);
+      toast.success('已新增整合：' + provider);
+    } catch (e) {
+      console.error(e);
+      toast.error('新增失敗');
+    }
+  }
+
+  async function testWebhook(provider: string) {
+    try {
+      setLoading(true);
+      const endpoint = `/api/webhooks/${provider}`;
+      const res = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ test: true, message: `test from admin for ${provider}` }) });
+      if (!res.ok) throw new Error('test failed');
+      toast.success('Webhook 測試成功');
+    } catch (e) {
+      console.error(e);
+      toast.error('Webhook 測試失敗');
+    } finally { setLoading(false); }
+  }
+
   return (
     <div className="p-6 bg-white rounded-lg shadow">
       <h3 className="text-lg font-bold mb-4">後台：AI 與整合設定</h3>
@@ -84,6 +110,10 @@ export function AdminPanel() {
 
         <div>
           <h4 className="font-medium">整合服務</h4>
+          <div className="mb-2 flex gap-2">
+            <Button size="sm" onClick={()=>addIntegration('notion')}>新增 Notion</Button>
+            <Button size="sm" onClick={()=>addIntegration('mcp')}>新增 MCP</Button>
+          </div>
           {integrations.map(integration => (
             <div key={integration.id} className="flex items-center justify-between py-2">
               <div>
@@ -91,9 +121,14 @@ export function AdminPanel() {
                 <div className="text-sm text-stone-500">{integration.enabled ? '已啟用' : '已停用'}</div>
               </div>
               <div>
-                <Button size="sm" onClick={()=>toggleIntegration(integration.id, !integration.enabled)}>
-                  {integration.enabled ? '停用' : '啟用'}
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={()=>toggleIntegration(integration.id, !integration.enabled)}>
+                    {integration.enabled ? '停用' : '啟用'}
+                  </Button>
+                  <Button size="sm" onClick={()=>testWebhook(integration.provider)}>
+                    測試 Webhook
+                  </Button>
+                </div>
               </div>
             </div>
           ))}

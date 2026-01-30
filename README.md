@@ -201,4 +201,46 @@
    * 引入校對模式 (Calibration)。
    * 增加搜尋、分類、標籤管理。
 
+---
+
+## Development Log & Admin Integration (Auto-generated)
+
+Recent automated changes by developer agent:
+
+- Add `AdminSettings` and `Integration` Prisma models to support configurable AI providers and external integrations.
+- Add admin API routes: `GET/PUT /api/admin/settings` and CRUD `/api/integrations`.
+- Add admin UI: `/admin` page with `AdminPanel` to manage AI provider/model and toggle integrations.
+- Add webhook endpoints: `/api/webhooks/notion` and `/api/webhooks/mcp` (basic test handlers).
+- Add placeholder MCP subscription helper: `POST /api/integrations/subscribe-mcp` to validate endpoint connectivity.
+
+How to apply DB migration locally:
+
+```bash
+npx prisma migrate dev --name add_admin_settings_and_integrations
+```
+
+Admin UI quick test steps:
+
+1. Start dev server:
+```bash
+npm run dev
+```
+2. Open admin panel: `http://localhost:3000/admin`
+3. Use "新增 Notion" / "新增 MCP" buttons to create integration entries. Use "啟用/停用" to toggle.
+4. Click "測試 Webhook" to POST a small test payload to corresponding webhook router.
+
+Notes & next steps:
+
+- The admin `config` fields are JSON blobs for now — we'll replace with structured forms for Notion OAuth and MCP tokens.
+- Webhook endpoints are simple test handlers; production should validate signatures and persist events or create `Note` records.
+- MCP and Notion specific flows (OAuth, token refresh, webhook verification) require credentials and external callbacks — I created placeholders and a subscribe helper to validate endpoints.
+
+If you want, I can now:
+
+1. Implement structured Notion OAuth connect flow (start + callback) and safe token storage UI.
+2. Convert integration `config` JSON into structured form fields in `AdminPanel` (with masking for secrets).
+3. Implement production-grade webhook handlers to create `Note` entries and trigger `processNoteWithGemini`.
+
+Tell me which of the above to implement next and I will proceed, committing and pushing each completed phase.
+
 這份規劃書將隨著開發進度持續更新，作為專案進化的依據。
