@@ -102,3 +102,17 @@ model SavedSearch {
   
   @@index([userId])
 }
+
+// 6. AI 聊天訊息 (Chat Messages)
+model ChatMessage {
+  id        String   @id @default(cuid())
+  noteId    String   // 關聯的筆記 ID
+  role      String   // "user" 或 "assistant"
+  content   String   // 訊息內容
+  tokens    Int?     // 使用的 token 數量 (用於計費)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([noteId, createdAt])
+}

@@ -15,15 +15,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input"; // 引入 Input
-import { // 引入 Sheet 相關組件
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { NoteAIAssistant } from "@/components/note-ai-assistant";
 
 interface Note {
   id: string;
@@ -224,31 +218,13 @@ export function SplitEditor({ note }: { note: Note }) {
                             <Sparkles className="w-4 h-4" />
                         </Button>
                     </SheetTrigger>
-                    <SheetContent side="right" className="w-96 flex flex-col gap-4">
+                    <SheetContent side="right" className="w-96 flex flex-col gap-4 p-6">
                         <SheetHeader>
                             <SheetTitle>AI 助手</SheetTitle>
                             <SheetDescription>從 AI 獲取洞察與建議</SheetDescription>
                         </SheetHeader>
 
-                        {/* Suggestions Section */}
-                        <div>
-                            <h3 className="text-sm font-bold mb-2">智能建議</h3>
-                            <ul className="list-disc list-inside">
-                                <li>建議 1</li>
-                                <li>建議 2</li>
-                                <li>建議 3</li>
-                            </ul>
-                        </div>
-
-                        {/* Chat Interface Section */}
-                        <div>
-                            <h3 className="text-sm font-bold mt-4 mb-2">與 AI 對話</h3>
-                            <div className="h-48 p-2 border rounded-md bg-stone-50 overflow-y-auto mb-2"></div>
-                            <div className="flex items-center gap-2">
-                                <Input type="text" placeholder="Ask AI..." className="flex-1 text-sm" />
-                                <Button size="sm">提問</Button>
-                            </div>
-                        </div>
+                        <NoteAIAssistant noteId={note.id} />
                     </SheetContent>
                 </Sheet>
             </div>
