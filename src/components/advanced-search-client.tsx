@@ -87,29 +87,32 @@ export function AdvancedSearchClient() {
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Search Conditions Panel */}
       <div className="px-6 py-4 bg-white border-b border-stone-200 space-y-4">
-        {/* Main Search Bar */}
-        <div className="flex gap-2">
-          <Input
-            placeholder="搜尋筆記內容、摘要、標籤..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="flex-1"
-          />
-          <Button
-            onClick={handleSearch}
-            disabled={isPending}
-            className="bg-stone-900 text-white hover:bg-stone-800"
-          >
-            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(showFilters && "bg-stone-100")}
-          >
-            <Filter className="w-4 h-4" />
-          </Button>
+        {/* Main Search Bar with Helper Text */}
+        <div className="flex gap-2 items-center">
+          <div className="flex-1 flex gap-2">
+            <Input
+              placeholder="搜尋筆記內容、摘要、標籤..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSearch}
+              disabled={isPending}
+              className="bg-stone-900 text-white hover:bg-stone-800"
+            >
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(showFilters && "bg-stone-100")}
+            >
+              <Filter className="w-4 h-4" />
+            </Button>
+          </div>
+          <span className="text-xs text-stone-400 whitespace-nowrap px-2">輸入 2 個字符或以上開始搜尋</span>
         </div>
 
         {/* Advanced Filters */}
