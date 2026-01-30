@@ -1,0 +1,15 @@
+
+> test-moltbot@0.1.0 dev
+> next dev -H 0.0.0.0 -p 3001
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://0.0.0.0:3001
+- Environments: .env
+
+✓ Starting...
+✓ Ready in 821ms
+○ Compiling /notes ...
+ GET /notes 200 in 4.1s (compile: 3.6s, render: 441ms)
+ GET /notes 200 in 84ms (compile: 4ms, render: 80ms)
+ GET /search 200 in 864ms (compile: 750ms, render: 114ms)
