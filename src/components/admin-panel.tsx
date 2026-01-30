@@ -75,6 +75,20 @@ export function AdminPanel() {
     }
   }
 
+  // Add MCP Server entry via structured form data (no secrets stored here)
+  async function addMcpServer(command: string, args: string[], env: Record<string,string>) {
+    try {
+      const res = await fetch('/api/integrations', { method: 'POST', body: JSON.stringify({ provider: 'mcp-server', enabled: false, config: { command, args, env } }) });
+      if (!res.ok) throw new Error('create failed');
+      const created = await res.json();
+      setIntegrations(prev => [created, ...prev]);
+      toast.success('已新增 MCP Server');
+    } catch (e) {
+      console.error(e);
+      toast.error('新增 MCP Server 失敗');
+    }
+  }
+
   async function testWebhook(provider: string) {
     try {
       setLoading(true);
@@ -138,6 +152,12 @@ export function AdminPanel() {
           <div className="mb-2 flex gap-2">
             <Button size="sm" onClick={()=>addIntegration('notion')}>新增 Notion</Button>
             <Button size="sm" onClick={()=>addIntegration('mcp')}>新增 MCP</Button>
+            <Button size="sm" onClick={()=>{
+              const exampleCmd = 'npx';
+              const exampleArgs = ['-y','@notionhq/notion-mcp-server'];
+              const exampleEnv = { OPENAPI_MCP_HEADERS: '{"Authorization": "Bearer <REPLACE_WITH_SECRET>", "Notion-Version": "2022-06-28"}' };
+              addMcpServer(exampleCmd, exampleArgs, exampleEnv);
+            }}>新增 MCP Server 範例</Button>
           </div>
           {integrations.map(integration => (
             <div key={integration.id} className="flex items-center justify-between py-2">

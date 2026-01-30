@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "notion-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": {
+        "OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer <NOTION_MCP_BEARER>\", \"Notion-Version\": \"2022-06-28\"}"
+      }
+    },
+    "github-mcp-server": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<GITHUB_PAT>"
+      }
+    },
+    "pinecone-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "@pinecone-database/mcp"],
+      "env": {
+        "PINECONE_API_KEY": "<PINECONE_API_KEY>"
+      }
+    }
+  }
+}
