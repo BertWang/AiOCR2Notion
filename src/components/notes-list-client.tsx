@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import Link from 'next/link';
-import { FileText, Image as ImageIcon, PlusCircle, Trash2, Loader2, Check, Download, FileStack } from 'lucide-react';
+import { FileText, Image as ImageIcon, PlusCircle, Trash2, Loader2, Check, Download, FileStack, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,7 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils'; // 引入 cn 輔助函數
+import { cn } from '@/lib/utils';
 
 interface Note {
   id: string;
@@ -37,8 +37,24 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  // 聚合所有标签与计算标签过滤后的笔记
+  const { allTags, filteredNotes } = useMemo(() => {
+    const tagSet = new Set<string>();
+    allNotes.forEach(note => {
+      if (note.tags) {
+        note.tags.split(',').forEach(tag => tagSet.add(tag.trim()));
+      }
+    });
+    const tags = Array.from(tagSet).sort();
+    const filtered = selectedTag
+      ? allNotes.filter(n => n.tags?.includes(selectedTag))
+      : allNotes;
+    return { allTags: tags, filteredNotes: filtered };
+  }, [allNotes, selectedTag]);
 
   const toggleSelect = (noteId: string) => {
     setSelectedNotes(prev => {
@@ -53,10 +69,10 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
   };
 
   const toggleSelectAll = () => {
-    if (selectedNotes.size === allNotes.length) {
+    if (selectedNotes.size === filteredNotes.length) {
       setSelectedNotes(new Set());
     } else {
-      setSelectedNotes(new Set(allNotes.map(note => note.id)));
+      setSelectedNotes(new Set(filteredNotes.map(note => note.id)));
     }
   };
 
@@ -73,10 +89,10 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
         throw new Error('批次刪除失敗');
       }
 
-      toast.success("選取筆記已刪除", { description: "資料列表正在更新..." });
+      toast.success(`已刪除 ${selectedNotes.size} 份筆記`, { description: "資料列表正在更新..." });
       setSelectedNotes(new Set());
       startTransition(() => {
-        router.refresh(); // 重新整理 Server Component 的數據
+        router.refresh();
       });
 
     } catch (e) {
@@ -98,7 +114,7 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
 
         if (!response.ok) throw new Error('合併失敗');
 
-        toast.success("筆記已合併", { description: "新筆記已建立" });
+        toast.success("筆記已合併", { description: `${selectedNotes.size} 份筆記已整合` });
         setSelectedNotes(new Set());
         startTransition(() => {
             router.refresh();
@@ -147,21 +163,22 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
   };
 
   const hasSelected = selectedNotes.size > 0;
-  const allSelected = selectedNotes.size === allNotes.length && allNotes.length > 0;
+  const allSelected = selectedNotes.size === filteredNotes.length && filteredNotes.length > 0;
 
   return (
-    <div className="flex-1 p-6 flex flex-col gap-8 max-w-7xl mx-auto w-full overflow-y-auto custom-scrollbar">
-      {/* Top Bar for Batch Actions */}
-      {allNotes.length > 0 && (
-        <div className="flex items-center justify-between px-2 py-3 bg-white border border-stone-200 rounded-xl shadow-sm sticky top-0 z-20">
-          <div className="flex items-center gap-3">
+    <div className="flex-1 flex flex-col h-full bg-stone-50/30 overflow-hidden">
+      {/* Sticky Batch Actions Bar */}
+      {filteredNotes.length > 0 && (
+        <div className="sticky top-0 z-20 px-6 py-3 bg-white border-b border-stone-200 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <Checkbox 
               checked={allSelected}
               onCheckedChange={toggleSelectAll}
               id="select-all-notes"
+              className="h-5 w-5"
             />
             <label htmlFor="select-all-notes" className="text-sm font-medium text-stone-700 select-none">
-              {hasSelected ? `已選取 ${selectedNotes.size} 份筆記` : "全選"}
+              {hasSelected ? `已選取 ${selectedNotes.size}/${filteredNotes.length}` : `全選 (${filteredNotes.length})`}
             </label>
           </div>
 
@@ -228,19 +245,66 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
         </div>
       )}
 
-      {allNotes.length === 0 ? (
-        <div className="text-center py-12 bg-stone-100/50 rounded-xl border border-dashed border-stone-200 flex flex-col items-center justify-center">
-          <p className="text-stone-400 text-sm mb-6">目前沒有任何筆記。點擊左側導航的「儀表板」上傳第一張圖片吧！</p>
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+        {filteredNotes.length === 0 && !selectedTag ? (
+        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-stone-200 flex flex-col items-center justify-center h-full max-w-md mx-auto">
+          <FileText className="w-12 h-12 text-stone-300 mb-4" />
+          <p className="text-stone-500 text-sm font-medium mb-1">目前沒有任何筆記</p>
+          <p className="text-stone-400 text-xs mb-6">點擊下方按鈕上傳第一張圖片開始</p>
           <Link href="/">
-            <button className="group flex items-center justify-center gap-2 bg-stone-900 text-stone-50 py-2.5 px-6 rounded-md hover:bg-stone-800 active:scale-[0.98] transition-all shadow-sm hover:shadow-md">
-              <PlusCircle className="w-4 h-4 text-stone-400 group-hover:text-white transition-colors" />
-              <span className="text-sm font-medium">前往儀表板上傳</span>
+            <button className="group flex items-center justify-center gap-2 bg-stone-900 text-stone-50 py-2 px-4 rounded-md hover:bg-stone-800 active:scale-[0.98] transition-all shadow-sm hover:shadow-md text-sm">
+              <PlusCircle className="w-4 h-4" />
+              <span>前往儀表板</span>
             </button>
           </Link>
         </div>
+      ) : filteredNotes.length === 0 && selectedTag ? (
+        <div className="text-center py-16 bg-white rounded-xl border border-stone-200 flex flex-col items-center justify-center h-full max-w-md mx-auto">
+          <Tag className="w-12 h-12 text-stone-300 mb-4" />
+          <p className="text-stone-500 text-sm font-medium mb-1">未找到標籤筆記</p>
+          <p className="text-stone-400 text-xs mb-6">標籤「{selectedTag}」沒有相關筆記</p>
+          <Button size="sm" onClick={() => setSelectedTag(null)} className="text-sm">清除篩選</Button>
+        </div>
       ) : (
+        <>
+          {/* Tag Filter Pills */}
+          {allTags.length > 0 && (
+            <div className="mb-6 pb-4 border-b border-stone-200">
+            <p className="text-xs font-semibold text-stone-600 mb-2">按標籤篩選</p>
+            <div className="flex flex-wrap gap-2">
+              {selectedTag && (
+                <button
+                  onClick={() => setSelectedTag(null)}
+                  className="px-3 py-1 text-xs font-medium text-white bg-stone-900 rounded-full hover:bg-stone-800 transition-colors"
+                >
+                  ✕ 全部
+                </button>
+              )}
+              {allTags.map(tag => {
+                const count = allNotes.filter(n => n.tags?.includes(tag)).length;
+                const isSelected = selectedTag === tag;
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => setSelectedTag(isSelected ? null : tag)}
+                    className={cn(
+                      "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                      isSelected
+                        ? 'text-white bg-stone-700 hover:bg-stone-600'
+                        : 'text-stone-600 bg-stone-100 hover:bg-stone-200'
+                    )}
+                  >
+                    #{tag} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {allNotes.map((note) => (
+          {filteredNotes.map((note) => (
             <div 
               key={note.id} 
               className={cn(
@@ -288,7 +352,9 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
             </div>
           ))}
         </div>
+        </>
       )}
+      </div>
     </div>
   );
 }

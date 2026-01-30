@@ -15,6 +15,9 @@ export function AdminPanel() {
   const [mcpEnvKeys, setMcpEnvKeys] = useState<string[]>(['OPENAPI_MCP_HEADERS']);
   const [notionClientIdVar, setNotionClientIdVar] = useState('NOTION_CLIENT_ID');
   const [notionClientSecretVar, setNotionClientSecretVar] = useState('NOTION_CLIENT_SECRET');
+  // Per-integration ephemeral UI state for MCP registration
+  const [mcpEndpointMap, setMcpEndpointMap] = useState<Record<string,string>>({});
+  const [mcpTokenMap, setMcpTokenMap] = useState<Record<string,string>>({});
 
   useEffect(() => {
     fetchSettings();
@@ -35,7 +38,7 @@ export function AdminPanel() {
     try {
       const res = await fetch('/api/integrations');
       const data = await res.json();
-      setIntegrations(data);
+      setIntegrations(Array.isArray(data) ? data : (data?.data ?? []));
     } catch (e) {
       console.error(e);
     }
@@ -224,7 +227,7 @@ export function AdminPanel() {
               </div>
             </div>
           </div>
-          {integrations.map(integration => (
+          {Array.isArray(integrations) && integrations.map(integration => (
             <div key={integration.id} className="flex items-center justify-between py-2">
               <div>
                 <div className="font-medium">{integration.provider}</div>
@@ -244,6 +247,50 @@ export function AdminPanel() {
                     ) : (
                       <Button size="sm" onClick={()=>connectNotion(integration.id)}>Connect Notion</Button>
                     )
+                  )}
+                  {integration.provider === 'mcp-server' && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="text-sm px-2 py-1 border rounded"
+                        placeholder="MCP endpoint (e.g. http://localhost:19001)"
+                        value={mcpEndpointMap[integration.id] || ''}
+                        onChange={(e)=>setMcpEndpointMap(prev=>({ ...prev, [integration.id]: e.target.value }))}
+                      />
+                      <input
+                        className="text-sm px-2 py-1 border rounded"
+                        placeholder="Auth token (optional)"
+                        value={mcpTokenMap[integration.id] || ''}
+                        onChange={(e)=>setMcpTokenMap(prev=>({ ...prev, [integration.id]: e.target.value }))}
+                      />
+                      <Button size="sm" onClick={async ()=>{
+                        const endpoint = mcpEndpointMap[integration.id];
+                        const token = mcpTokenMap[integration.id];
+                        if (!endpoint) { toast.error('請輸入 MCP endpoint'); return; }
+                        try {
+                          setLoading(true);
+                          const resp = await fetch('/api/integrations/subscribe-mcp', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ endpoint, token })
+                          });
+                          const data = await resp.json();
+                          if (!resp.ok) { throw new Error(data?.error || 'subscribe failed'); }
+                          // update integration config with subscription result
+                          const updatedConfig = { ...integration.config, subscribeResult: data };
+                          const updateResp = await fetch('/api/integrations', { method: 'PUT', body: JSON.stringify({ id: integration.id, config: updatedConfig }) });
+                          if (updateResp.ok) {
+                            const updated = await updateResp.json();
+                            setIntegrations(prev => prev.map(i => i.id === updated.id ? updated : i));
+                            toast.success('MCP 註冊完成');
+                          } else {
+                            toast.error('儲存註冊結果失敗');
+                          }
+                        } catch (e) {
+                          console.error(e);
+                          toast.error('MCP 註冊失敗');
+                        } finally { setLoading(false); }
+                      }}>Register</Button>
+                    </div>
                   )}
                 </div>
               </div>

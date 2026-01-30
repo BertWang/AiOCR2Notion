@@ -11,7 +11,7 @@ export async function GET() {
           id: "singleton",
           aiProvider: "gemini-2.0-flash",
           modelName: "gemini-2.0-flash",
-          config: {},
+          config: JSON.stringify({}),
         },
       });
     }
@@ -33,13 +33,13 @@ export async function PUT(request: NextRequest) {
       update: {
         aiProvider: aiProvider ?? undefined,
         modelName: modelName ?? undefined,
-        config: config ?? undefined,
+        config: typeof config === 'string' ? config : JSON.stringify(config ?? {}),
       },
       create: {
         id: "singleton",
         aiProvider: aiProvider ?? "gemini-2.0-flash",
         modelName: modelName ?? "gemini-2.0-flash",
-        config: config ?? {},
+        config: typeof config === 'string' ? config : JSON.stringify(config ?? {}),
       },
     });
 

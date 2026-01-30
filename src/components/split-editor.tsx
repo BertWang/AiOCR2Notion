@@ -23,7 +23,7 @@ interface Note {
   refinedContent: string | null;
   rawOcrText: string | null;
   summary: string | null;
-  tags: string;
+  tags: string | null;
   status?: string;
 }
 

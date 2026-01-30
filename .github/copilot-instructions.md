@@ -20,24 +20,24 @@ Client Upload → Server Handler → File Storage → AI Processing → DB Updat
 ## Critical Data Flow
 
 ### Upload to Completion
-1. **[upload-zone.tsx](src/components/upload-zone.tsx)** - Client-side batch collection with progress
-2. **[POST /api/upload](src/app/api/upload/route.ts)** - File persistence to `public/uploads/`, DB record creation, AI trigger
-3. **[gemini.ts](src/lib/gemini.ts)** - Synchronous AI processing with retry logic (exponential backoff for rate limits)
+1. **[upload-zone.tsx](../src/components/upload-zone.tsx)** - Client-side batch collection with progress
+2. **[POST /api/upload](../src/app/api/upload/route.ts)** - File persistence to `public/uploads/`, DB record creation, AI trigger
+3. **[gemini.ts](../src/lib/gemini.ts)** - Synchronous AI processing with retry logic (exponential backoff for rate limits)
 4. **Database Update** - `status` progression: `PENDING → PROCESSING → COMPLETED` (or `FAILED`)
-5. **[GET /api/notes](src/app/api/notes/route.ts)** - Server Components fetch latest data via Prisma
+5. **[GET /api/notes](../src/app/api/notes/route.ts)** - Server Components fetch latest data via Prisma
 
 ### Processing State Machine
 - **PENDING**: Initial file received, ready for AI
 - **PROCESSING**: AI actively analyzing (current state during upload)
 - **COMPLETED**: AI result stored; user can now edit/view
-- **FAILED**: AI error; user triggers retry via [/api/retry](src/app/api/retry/route.ts)
+- **FAILED**: AI error; user triggers retry via [/api/retry](../src/app/api/retry/route.ts)
 
 ---
 
 ## Code Organization & Patterns
 
 ### Database Schema (Prisma)
-[prisma/schema.prisma](prisma/schema.prisma) key fields:
+[../prisma/schema.prisma](../prisma/schema.prisma) key fields:
 ```prisma
 // Note lifecycle fields
 status String @default("PENDING")  // State machine
@@ -59,14 +59,14 @@ fileKey String?          // Local filename for deletion
 **Important**: `tags` stored as comma-separated string (SQLite no native array support).
 
 ### API Route Conventions
-- **[POST /api/upload](src/app/api/upload/route.ts)** - File + AI processing (rate-limited: 5/minute)
-- **[GET /api/notes](src/app/api/notes/route.ts)** - Fetch all notes (Server Component query)
-- **[PUT /api/notes/[id]](src/app/api/notes/[id]/route.ts)** - Update `refinedContent`, `tags`
-- **[DELETE /api/notes](src/app/api/notes/route.ts)** - Batch delete with file cleanup
-- **[POST /api/retry](src/app/api/retry/route.ts)** - Retry failed AI processing
+- **[POST /api/upload](../src/app/api/upload/route.ts)** - File + AI processing (rate-limited: 5/minute)
+- **[GET /api/notes](../src/app/api/notes/route.ts)** - Fetch all notes (Server Component query)
+- **[PUT /api/notes/[id]](../src/app/api/notes/[id]/route.ts)** - Update `refinedContent`, `tags`
+- **[DELETE /api/notes](../src/app/api/notes/route.ts)** - Batch delete with file cleanup
+- **[POST /api/retry](../src/app/api/retry/route.ts)** - Retry failed AI processing
 
 ### AI Integration (Gemini 2.0 Flash)
-[lib/gemini.ts](src/lib/gemini.ts) exports `processNoteWithGemini(filePath, mimeType)`:
+[lib/gemini.ts](../src/lib/gemini.ts) exports `processNoteWithGemini(filePath, mimeType)`:
 - Accepts file path (converted to base64), returns structured `ProcessedNote` JSON
 - **Prompt Design**: Requests JSON output with 4 fields: `rawOcr`, `refinedContent`, `summary`, `tags`
 - **Language**: Explicitly requests Traditional Chinese (繁體中文) for summary + tags
@@ -78,12 +78,12 @@ fileKey String?          // Local filename for deletion
 **Watch Out**: Gemini may wrap JSON in markdown code blocks (`\`\`\`json...`\`\``); the parser strips these.
 
 ### Component Architecture
-- **[split-editor.tsx](src/components/split-editor.tsx)** - Core dual-pane editor:
+-- **[split-editor.tsx](../src/components/split-editor.tsx)** - Core dual-pane editor:
   - Left: Image with zoom controls
   - Right: Editable markdown with live preview
   - Features: Tag management (add/remove), save, retry on failure
-- **[upload-zone.tsx](src/components/upload-zone.tsx)** - Drag-drop file collection + progress
-- **[notes-list-client.tsx](src/components/notes-list-client.tsx)** - Client-side search filtering
+- **[upload-zone.tsx](../src/components/upload-zone.tsx)** - Drag-drop file collection + progress
+- **[notes-list-client.tsx](../src/components/notes-list-client.tsx)** - Client-side search filtering
 - **UI Library**: shadcn/ui + Radix primitives (button, input, tabs, resizable, etc.)
 
 ### Design System: "Digital Zen"
@@ -132,7 +132,7 @@ npx prisma studio                               # GUI for data inspection
 ## Common Patterns & Gotchas
 
 ### Pattern: Server Components for Data Fetching
-- [page.tsx](src/app/page.tsx#L9) uses `export const dynamic = 'force-dynamic'` + direct Prisma queries
+-- [page.tsx](../src/app/page.tsx#L9) uses `export const dynamic = 'force-dynamic'` + direct Prisma queries
 - Why: Immediate data consistency without extra API hop; revalidatePath() updates UI
 
 ### Pattern: Cache Invalidation
@@ -140,7 +140,7 @@ npx prisma studio                               # GUI for data inspection
 - Without this, users see stale data until next full page load
 
 ### Pattern: File Cleanup on Delete
-- [DELETE /api/notes](src/app/api/notes/route.ts#L20) deletes both DB record AND physical file
+-- [DELETE /api/notes](../src/app/api/notes/route.ts#L20) deletes both DB record AND physical file
 - Uses `unlink()` from `fs/promises`; logs warnings if file missing (DB-only cleanup is ok)
 
 ### Gotcha: CSV Tag Format
@@ -149,7 +149,7 @@ npx prisma studio                               # GUI for data inspection
 - Missing `.trim()` → Leading spaces in tags; always trim when parsing
 
 ### Gotcha: Mime Type Detection
-- [retry route](src/app/api/retry/route.ts#L37) infers MIME from filename (brittle)
+-- [retry route](../src/app/api/retry/route.ts#L37) infers MIME from filename (brittle)
 - Better: Store `mimeType` in Note schema or detect via file magic bytes
 
 ### Gotcha: Gemini JSON Parsing
@@ -162,14 +162,14 @@ npx prisma studio                               # GUI for data inspection
 
 | File | Purpose |
 |------|---------|
-| [prisma/schema.prisma](prisma/schema.prisma) | Data model; defines Note + Collection |
-| [lib/gemini.ts](src/lib/gemini.ts) | AI processing core; Gemini API client |
-| [lib/prisma.ts](src/lib/prisma.ts) | Prisma singleton instance |
-| [app/api/upload/route.ts](src/app/api/upload/route.ts) | File upload + AI trigger; rate-limited |
-| [app/api/retry/route.ts](src/app/api/retry/route.ts) | Manual retry for failed notes |
-| [components/split-editor.tsx](src/components/split-editor.tsx) | Edit + preview interface |
-| [components/upload-zone.tsx](src/components/upload-zone.tsx) | Drag-drop file collection |
-| [app/page.tsx](src/app/page.tsx) | Dashboard; shows recent notes |
+| [../prisma/schema.prisma](../prisma/schema.prisma) | Data model; defines Note + Collection |
+| [lib/gemini.ts](../src/lib/gemini.ts) | AI processing core; Gemini API client |
+| [lib/prisma.ts](../src/lib/prisma.ts) | Prisma singleton instance |
+| [app/api/upload/route.ts](../src/app/api/upload/route.ts) | File upload + AI trigger; rate-limited |
+| [app/api/retry/route.ts](../src/app/api/retry/route.ts) | Manual retry for failed notes |
+| [components/split-editor.tsx](../src/components/split-editor.tsx) | Edit + preview interface |
+| [components/upload-zone.tsx](../src/components/upload-zone.tsx) | Drag-drop file collection |
+| [app/page.tsx](../src/app/page.tsx) | Dashboard; shows recent notes |
 
 ---
 
