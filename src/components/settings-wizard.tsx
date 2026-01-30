@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenClawAnalysis } from "@/hooks/use-openclaw-analysis";
+import { ConfigPresetsManager } from "@/components/config-presets-manager";
 
 interface AdminSettings {
   aiProvider: string;
@@ -389,6 +390,34 @@ export function SettingsWizard() {
                   取消
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>配置預設</CardTitle>
+              <CardDescription>
+                儲存與快速套用 AI 模型配置
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ConfigPresetsManager
+                type="ai_model"
+                currentConfig={{
+                  aiProvider: settings?.aiProvider,
+                  modelName: settings?.modelName,
+                  config: settings?.config || {},
+                }}
+                onApplyPreset={(config) => {
+                  if (!settings) return;
+                  setSettings({
+                    ...settings,
+                    aiProvider: config.aiProvider || settings.aiProvider,
+                    modelName: config.modelName || settings.modelName,
+                    config: config.config || settings.config,
+                  });
+                }}
+              />
             </CardContent>
           </Card>
         </TabsContent>

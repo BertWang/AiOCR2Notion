@@ -6,6 +6,7 @@ import { FileText, Image as ImageIcon, PlusCircle, Trash2, Loader2, Check, Downl
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { NotionExport } from '@/components/notion-export';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -204,6 +205,15 @@ export function NotesListClient({ allNotes }: { allNotes: Note[] }) {
                 {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
                 匯出 Markdown
             </Button>
+
+            <NotionExport
+                selectedNoteIds={Array.from(selectedNotes)}
+                onExportComplete={() => {
+                  startTransition(() => {
+                    router.refresh();
+                  });
+                }}
+            />
 
             <AlertDialog>
               <AlertDialogTrigger asChild>

@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APIUsageStats } from "@/components/api-usage-stats";
 
 /**
  * 改进的管理后台面板
@@ -526,17 +527,7 @@ export function EnhancedAdminPanel() {
 
           {/* 监控 Tab */}
           <TabsContent value="monitoring" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>系统监控和统计</CardTitle>
-                <CardDescription>API 使用统计和性能指标</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-stone-600">
-                  监控功能将在 Phase 5.0 实现
-                </p>
-              </CardContent>
-            </Card>
+            <APIUsageStats />
           </TabsContent>
         </div>
       </Tabs>

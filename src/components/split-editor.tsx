@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { VersionHistory } from "@/components/version-history";
 import { NoteAIAssistant } from "@/components/note-ai-assistant";
 
 interface Note {
@@ -66,6 +67,19 @@ export function SplitEditor({ note }: { note: Note }) {
 
         if (!response.ok) {
             throw new Error('儲存失敗');
+        }
+        // 建立版本歷史
+        try {
+          await fetch(`/api/notes/${note.id}/versions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              changeDescription: '手動儲存',
+              changeType: 'manual',
+            })
+          });
+        } catch (versionError) {
+          console.warn('Version creation failed:', versionError);
         }
         toast.success("變更已儲存");
     } catch(e) {
@@ -199,6 +213,8 @@ export function SplitEditor({ note }: { note: Note }) {
                     {isSaving ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
                     儲存
                 </Button>
+
+                <VersionHistory noteId={note.id} />
                 
                 {currentStatus === 'FAILED' && (
                     <Button 

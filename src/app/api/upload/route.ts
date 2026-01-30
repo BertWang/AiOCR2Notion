@@ -84,7 +84,9 @@ export async function POST(request: NextRequest) {
       
       // 使用處理管道執行
       const pipeline = new NotesProcessingPipeline();
+      const aiStartTime = Date.now();
       const aiResult = await aiProvider.processNote(filepath, file.type || "image/jpeg");
+      const executionTimeMs = Date.now() - aiStartTime;
       
       // 4. 更新資料庫
       const updatedNote = await prisma.note.update({
@@ -100,6 +102,48 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // 建立初始版本
+      try {
+        const lastVersion = await prisma.noteVersion.findFirst({
+          where: { noteId: note.id },
+          orderBy: { versionNumber: 'desc' }
+        });
+        const nextVersionNumber = (lastVersion?.versionNumber || 0) + 1;
+        await prisma.noteVersion.create({
+          data: {
+            noteId: note.id,
+            versionNumber: nextVersionNumber,
+            content: aiResult.refinedContent || aiResult.rawOcr || '',
+            summary: aiResult.summary,
+            tags: aiResult.tags.join(','),
+            changeDescription: '初始 AI 處理結果',
+            changeType: 'ai_refinement',
+            userId: 'system'
+          }
+        });
+      } catch (versionError) {
+        console.warn('Create initial version failed:', versionError);
+      }
+
+      // 記錄 API 使用統計
+      try {
+        await prisma.aPIUsageLog.create({
+          data: {
+            provider: process.env.AI_PROVIDER || 'gemini',
+            endpoint: 'processNote',
+            method: 'POST',
+            statusCode: 200,
+            executionTimeMs,
+            tokensUsed: undefined,
+            estimatedCost: undefined,
+            noteId: note.id,
+            userId: 'system'
+          }
+        });
+      } catch (logError) {
+        console.warn('API usage log failed:', logError);
+      }
+
       // 重新驗證首頁數據，確保前端列表即時更新
       revalidatePath('/');
 
@@ -107,6 +151,23 @@ export async function POST(request: NextRequest) {
 
     } catch (aiError) {
       console.error("AI Processing Error:", aiError);
+      // 記錄 API 使用統計（失敗）
+      try {
+        await prisma.aPIUsageLog.create({
+          data: {
+            provider: process.env.AI_PROVIDER || 'gemini',
+            endpoint: 'processNote',
+            method: 'POST',
+            statusCode: 500,
+            executionTimeMs: 0,
+            noteId: note.id,
+            userId: 'system',
+            error: aiError instanceof Error ? aiError.message : 'Unknown AI Error'
+          }
+        });
+      } catch (logError) {
+        console.warn('API usage log failed:', logError);
+      }
       // 更新為失敗狀態
       await prisma.note.update({
         where: { id: note.id },
