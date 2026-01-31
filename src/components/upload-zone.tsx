@@ -1,19 +1,20 @@
 "use client"
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { UploadCloud, FileImage, X, Loader2, Sparkles, CheckCircle2 } from 'lucide-react'
+import { UploadCloud, FileImage, X, Loader2, Sparkles, Camera } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress' // 注意：如果沒有安裝 progress 需要補裝，這裡先假設用簡單的 div 模擬
+import { Progress } from '@/components/ui/progress'
 
 export function UploadZone() {
   const [files, setFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -36,6 +37,15 @@ export function UploadZone() {
 
   const removeFile = (name: string) => {
     setFiles(files.filter(f => f.name !== name))
+  }
+
+  const handleCameraCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file && file.type.startsWith('image/')) {
+      setFiles(prev => [...prev, file])
+      toast.success('照片已添加', { description: `${file.name} 已準備上傳` })
+      if (cameraInputRef.current) cameraInputRef.current.value = ''
+    }
   }
 
   const handleUpload = async () => {
@@ -208,6 +218,26 @@ export function UploadZone() {
                         <>開始智慧歸檔</>
                     )}
                  </Button>
+
+                 {/* 相機上傳按鈕 (移動端) */}
+                 <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleCameraCapture}
+                    className="hidden"
+                 />
+                 <Button
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={isUploading}
+                    variant="outline"
+                    className="h-12 px-4 md:px-6 transition-all"
+                    title="使用相機拍照上傳"
+                 >
+                    <Camera className="w-4 h-4 md:mr-2" />
+                    <span className="hidden md:inline">拍照</span>
+                 </Button>
             </div>
           </motion.div>
         )}
@@ -215,3 +245,4 @@ export function UploadZone() {
     </div>
   )
 }
+
