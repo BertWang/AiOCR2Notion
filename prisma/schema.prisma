@@ -75,12 +75,63 @@ model Note {
   updatedAt      DateTime @updatedAt
 }
 
-// 3. 管理員設定與整合
+// 3. OCR 提供商配置 (方案 B: 多提供商支持)
+model OCRProviderSetting {
+  id               String   @id @default(cuid())
+  provider         String   // gemini, azure, openai, googleVision, tesseract, textract
+  enabled          Boolean  @default(false)
+  priority         Int      @default(10)  // 優先級 1-100 (越小越優先)
+  isDefault        Boolean  @default(false) // 是否為默認提供商
+  
+  // API 配置
+  apiKey           String?  // 加密存儲的 API 密鑰
+  apiKeyEncrypted  Boolean  @default(false) // 是否已加密
+  endpoint         String?  // 自定義端點 (如 Azure)
+  
+  // 提供商特定配置 (JSON 格式)
+  config           String?  // { "modelName": "...", "region": "...", ... }
+  
+  // 性能指標
+  avgResponseTimeMs Int?    // 平均響應時間
+  successRate      Float?   // 成功率 (0-1)
+  costPerRequest   Float?   // 單次請求成本 (USD)
+  
+  // 狀態和限制
+  status           String   @default("ACTIVE") // ACTIVE, INACTIVE, ERROR, RATE_LIMITED
+  rateLimitPerMin  Int?     // 每分鐘請求限制
+  monthlyQuota     Int?     // 月度配額
+  monthlyUsage     Int?     // 當月使用量
+  
+  // 最後使用和錯誤
+  lastUsedAt       DateTime?
+  lastErrorAt      DateTime?
+  lastErrorMessage String?
+  
+  // 元數據
+  displayName      String?  // 顯示名稱
+  description      String?  // 描述
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@unique([provider])
+  @@index([enabled])
+  @@index([priority])
+  @@index([status])
+}
+
+// 3a. 管理員設定與整合
 model AdminSettings {
   id          String   @id @default("singleton")
   aiProvider  String   @default("gemini-2.0-flash") // e.g. gemini, openai, azure
   modelName   String   @default("gemini-2.0-flash")
   config      String?  // provider specific configuration serialized as JSON string
+  
+  // OCR 提供商設置 (方案 B)
+  enabledOCRProviders String? @default("gemini") // 逗號分隔的啟用提供商列表
+  defaultOCRProvider  String? @default("gemini") // 默認 OCR 提供商
+  enableFailover      Boolean @default(true)     // 是否啟用故障轉移
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

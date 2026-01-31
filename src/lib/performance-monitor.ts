@@ -99,13 +99,6 @@ export async function cleanupStaleData(daysToKeep: number = 30) {
       },
     });
 
-    // 清理舊 API 使用日誌
-    const deletedAPILogs = await prisma.aPIUsageLog.deleteMany({
-      where: {
-        createdAt: { lt: cutoffDate },
-      },
-    });
-
     // 清理舊 MCP 同步日誌
     const deletedMCPLogs = await prisma.mCPSyncLog.deleteMany({
       where: {
@@ -115,7 +108,6 @@ export async function cleanupStaleData(daysToKeep: number = 30) {
 
     return {
       deletedSearchHistory: deletedSearchHistory.count,
-      deletedAPILogs: deletedAPILogs.count,
       deletedMCPLogs: deletedMCPLogs.count,
     };
   } catch (error) {

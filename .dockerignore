@@ -1,0 +1,33 @@
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Next.js
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Testing
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+prisma/*.db
+prisma/*.db-journal
+dev.db*
+
+# Uploads (for development)
+public/uploads/*
+!public/uploads/.gitkeep

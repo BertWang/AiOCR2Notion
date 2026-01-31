@@ -1,0 +1,19 @@
+{
+  "buildCommand": "npm run build && npx prisma generate",
+  "outputDirectory": ".next",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "env": {
+    "GEMINI_API_KEY": "@gemini-api-key",
+    "DATABASE_URL": "@database-url",
+    "AI_PROVIDER": "gemini"
+  },
+  "regions": ["hnd1"],
+  "functions": {
+    "api/**": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  }
+}

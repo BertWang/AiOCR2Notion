@@ -108,6 +108,17 @@ export class GeminiProvider extends BaseAIProvider {
     }
   }
 
+  async testConnection(): Promise<void> {
+    try {
+      const isHealthy = await this.healthCheck();
+      if (!isHealthy) {
+        throw new Error('Gemini API connection test failed');
+      }
+    } catch (error) {
+      throw new Error(`Gemini connection failed: ${(error as Error).message}`);
+    }
+  }
+
   private fileToGenerativePart(path: string, mimeType: string) {
     return {
       inlineData: {

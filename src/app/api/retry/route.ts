@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { AIProviderFactory } from "@/lib/ai-service/factory";
+import { OCRProviderManager } from "@/lib/ocr-provider-manager";
 import { revalidatePath } from 'next/cache';
 
 export async function POST(request: NextRequest) {
@@ -39,8 +39,12 @@ export async function POST(request: NextRequest) {
     const mimeType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
 
     try {
-      const aiProvider = AIProviderFactory.getDefaultProvider();
-      const aiResult = await aiProvider.processNote(filepath, mimeType);
+      // 優先使用原提供商，其次使用故障轉移
+      const aiResult = await OCRProviderManager.processNotePreferOriginal(
+        noteId,
+        filepath,
+        mimeType
+      );
       
       // 4. 更新資料庫
       const updatedNote = await prisma.note.update({
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
           summary: aiResult.summary,
           tags: aiResult.tags.join(","),
           confidence: aiResult.confidence,
-          ocrProvider: process.env.AI_PROVIDER || "gemini-2.0-flash (retry)",
+          ocrProvider: aiResult.usedProvider,
           status: "COMPLETED",
         },
       });

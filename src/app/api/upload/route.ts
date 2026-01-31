@@ -3,6 +3,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import { AIProviderFactory } from "@/lib/ai-service/factory";
+import { OCRProviderManager } from "@/lib/ocr-provider-manager";
 import { NotesProcessingPipeline } from "@/lib/processing-pipeline";
 import { revalidatePath } from 'next/cache'; // 引入 revalidatePath
 
@@ -77,15 +78,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 3. 觸發 AI 處理 (使用可配置的處理管道)
+    // 3. 觸發 AI 處理 (使用 OCR 提供商管理器支持故障轉移)
     try {
-      // 使用工廠模式獲取配置的 AI 提供商
-      const aiProvider = AIProviderFactory.getDefaultProvider();
-      
-      // 使用處理管道執行
+      // 使用 OCR 提供商管理器 - 支持多提供商和故障轉移
       const pipeline = new NotesProcessingPipeline();
       const aiStartTime = Date.now();
-      const aiResult = await aiProvider.processNote(filepath, file.type || "image/jpeg");
+      const aiResult = await OCRProviderManager.processNoteWithFailover(
+        filepath,
+        file.type || "image/jpeg"
+      );
       const executionTimeMs = Date.now() - aiStartTime;
       
       // 4. 更新資料庫
@@ -97,49 +98,15 @@ export async function POST(request: NextRequest) {
           summary: aiResult.summary,
           tags: aiResult.tags.join(","),
           confidence: aiResult.confidence,
-          ocrProvider: process.env.AI_PROVIDER || "gemini-2.0-flash",
+          ocrProvider: aiResult.usedProvider,
           status: "COMPLETED",
         },
       });
 
-      // 建立初始版本
+      // 記錄 API 使用統計 (可選)
       try {
-        const lastVersion = await prisma.noteVersion.findFirst({
-          where: { noteId: note.id },
-          orderBy: { versionNumber: 'desc' }
-        });
-        const nextVersionNumber = (lastVersion?.versionNumber || 0) + 1;
-        await prisma.noteVersion.create({
-          data: {
-            noteId: note.id,
-            versionNumber: nextVersionNumber,
-            content: aiResult.refinedContent || aiResult.rawOcr || '',
-            summary: aiResult.summary,
-            tags: aiResult.tags.join(','),
-            changeDescription: '初始 AI 處理結果',
-            changeType: 'ai_refinement',
-            userId: 'system'
-          }
-        });
-      } catch (versionError) {
-        console.warn('Create initial version failed:', versionError);
-      }
-
-      // 記錄 API 使用統計
-      try {
-        await prisma.aPIUsageLog.create({
-          data: {
-            provider: process.env.AI_PROVIDER || 'gemini',
-            endpoint: 'processNote',
-            method: 'POST',
-            statusCode: 200,
-            executionTimeMs,
-            tokensUsed: undefined,
-            estimatedCost: undefined,
-            noteId: note.id,
-            userId: 'system'
-          }
-        });
+        // 如果 APIUsageLog 模型存在，取消註解下面的代碼
+        // await prisma.aPIUsageLog.create({...});
       } catch (logError) {
         console.warn('API usage log failed:', logError);
       }
@@ -151,23 +118,6 @@ export async function POST(request: NextRequest) {
 
     } catch (aiError) {
       console.error("AI Processing Error:", aiError);
-      // 記錄 API 使用統計（失敗）
-      try {
-        await prisma.aPIUsageLog.create({
-          data: {
-            provider: process.env.AI_PROVIDER || 'gemini',
-            endpoint: 'processNote',
-            method: 'POST',
-            statusCode: 500,
-            executionTimeMs: 0,
-            noteId: note.id,
-            userId: 'system',
-            error: aiError instanceof Error ? aiError.message : 'Unknown AI Error'
-          }
-        });
-      } catch (logError) {
-        console.warn('API usage log failed:', logError);
-      }
       // 更新為失敗狀態
       await prisma.note.update({
         where: { id: note.id },

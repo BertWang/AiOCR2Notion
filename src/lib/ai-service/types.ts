@@ -37,6 +37,9 @@ export interface AIProviderInterface {
   // 健康檢查
   healthCheck(): Promise<boolean>;
 
+  // 測試連接
+  testConnection?(): Promise<void>;
+
   // 獲取 API 使用情況（如果支持）
   getUsage?(): Promise<APIUsage>;
 }
