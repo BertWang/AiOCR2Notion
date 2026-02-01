@@ -38,6 +38,7 @@ import { ServiceTroubleshooting } from "@/components/service-troubleshooting";
 import { MCPRecommendations } from "@/components/mcp-recommendations";
 import { MCPAnalyticsDashboard } from "@/components/mcp-analytics-dashboard";
 import { MCPServiceValidation } from "@/components/mcp-service-validation";
+import { MCPFailover } from "@/components/mcp-failover";
 
 interface MarketplaceService {
   id: string;
@@ -127,20 +128,20 @@ export function MCPMarketplaceClient() {
     }
   };
 
+  const loadInstalled = async () => {
+    try {
+      const response = await fetch("/api/mcp/marketplace?action=installed");
+      const data = await response.json();
+      if (data.success) {
+        setInstalledServices(data.installed || []);
+      }
+    } catch (error) {
+      console.error("Failed to load installed services:", error);
+    }
+  };
+
   // 加載已安裝的服務
   useEffect(() => {
-    const loadInstalled = async () => {
-      try {
-        const response = await fetch("/api/mcp/marketplace?action=installed");
-        const data = await response.json();
-        if (data.success) {
-          setInstalledServices(data.installed || []);
-        }
-      } catch (error) {
-        console.error("Failed to load installed services:", error);
-      }
-    };
-
     loadInstalled();
   }, []);
 
@@ -811,6 +812,14 @@ export function MCPMarketplaceClient() {
                         <ServiceValidation
                           serviceId={service.id}
                           serviceName={service.name}
+                        />
+                        <MCPFailover
+                          serviceId={service.id}
+                          serviceName={service.name}
+                          onFailoverComplete={() => {
+                            toast.success("故障轉移完成");
+                            loadInstalled();
+                          }}
                         />
                         <ServiceTroubleshooting
                           serviceId={service.id}
