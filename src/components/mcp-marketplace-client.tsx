@@ -27,6 +27,10 @@ import {
   Users,
   AlertCircle,
   CheckCircle,
+  Trash2,
+  Power,
+  PowerOff,
+  Heart,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,6 +73,13 @@ export function MCPMarketplaceClient() {
   const [selectedService, setSelectedService] = useState<MarketplaceService | null>(null);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
   const [testingServices, setTestingServices] = useState<Set<string>>(new Set());
+  const [deletingServices, setDeletingServices] = useState<Set<string>>(new Set());
+  const [togglingServices, setTogglingServices] = useState<Set<string>>(new Set());
+  const [managingServices, setManagingServices] = useState<Set<string>>(new Set());
+  const [ratingServices, setRatingServices] = useState<Record<string, any>>({});
+  const [favoriteServices, setFavoriteServices] = useState<Set<string>>(new Set());
+  const [ratingStars, setRatingStars] = useState<Record<string, number>>({});
+  const [favoritingServices, setFavoritingServices] = useState<Set<string>>(new Set());
 
   // 加載市場數據
   useEffect(() => {
@@ -211,6 +222,171 @@ export function MCPMarketplaceClient() {
         next.delete(serviceId);
         return next;
       });
+    }
+  };
+
+  const handleFavoriteToggle = async (serviceId: string) => {
+    setFavoritingServices((prev) => new Set(prev).add(serviceId));
+    const isFavorited = favoriteServices.has(serviceId);
+    const action = isFavorited ? "remove" : "add";
+
+    try {
+      const response = await fetch(`/api/mcp/${serviceId}/favorite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "收藏操作失敗");
+      }
+
+      setFavoriteServices((prev) => {
+        const next = new Set(prev);
+        if (isFavorited) {
+          next.delete(serviceId);
+          toast.success("已移除收藏");
+        } else {
+          next.add(serviceId);
+          toast.success("已添加收藏");
+        }
+        return next;
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "收藏操作失敗");
+    } finally {
+      setFavoritingServices((prev) => {
+        const next = new Set(prev);
+        next.delete(serviceId);
+        return next;
+      });
+    }
+  };
+
+
+
+  const handleToggleService = async (serviceId: string) => {
+    setTogglingServices((prev) => new Set(prev).add(serviceId));
+    try {
+      const response = await fetch(`/api/mcp/services/${serviceId}/toggle`, {
+        method: "PATCH",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "切換失敗");
+      }
+
+      toast.success(data.message);
+      setInstalledServices((prev) =>
+        prev.map((service) =>
+          service.id === serviceId
+            ? { ...service, enabled: data.enabled }
+            : service
+        )
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "切換失敗");
+    } finally {
+      setTogglingServices((prev) => {
+        const next = new Set(prev);
+        next.delete(serviceId);
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteService = async (serviceId: string) => {
+    if (!confirm("確定要刪除此服務？此操作無法復原。")) return;
+
+    setDeletingServices((prev) => new Set(prev).add(serviceId));
+    try {
+      const response = await fetch(`/api/mcp/services/${serviceId}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "刪除失敗");
+      }
+
+      toast.success("服務已刪除");
+      setInstalledServices((prev) =>
+        prev.filter((service) => service.id !== serviceId)
+      );
+      loadMarketplace();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "刪除失敗");
+    } finally {
+      setDeletingServices((prev) => {
+        const next = new Set(prev);
+        next.delete(serviceId);
+        return next;
+      });
+    }
+  };
+
+  const handleManageService = async (serviceId: string, action: "enable" | "disable" | "uninstall") => {
+    setManagingServices((prev) => new Set(prev).add(serviceId));
+    try {
+      const response = await fetch(`/api/mcp/${serviceId}/manage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "操作失敗");
+      }
+
+      if (action === "uninstall") {
+        setInstalledServices((prev) => prev.filter((s) => s.id !== serviceId));
+        toast.success("已卸載");
+      } else {
+        setInstalledServices((prev) =>
+          prev.map((s) =>
+            s.id === serviceId
+              ? { ...s, enabled: action === "enable" }
+              : s
+          )
+        );
+        toast.success(data.message);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "操作失敗");
+    } finally {
+      setManagingServices((prev) => {
+        const next = new Set(prev);
+        next.delete(serviceId);
+        return next;
+      });
+    }
+  };
+
+  const handleRateService = async (serviceId: string, rating: number, isFavorite: boolean) => {
+    try {
+      const response = await fetch(`/api/mcp/${serviceId}/rate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating,
+          isFavorite,
+          userId: `user_${Date.now()}`,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "評分失敗");
+      }
+
+      setRatingServices((prev) => ({
+        ...prev,
+        [serviceId]: { rating, isFavorite },
+      }));
+      toast.success("評分已保存");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "評分失敗");
     }
   };
 
@@ -422,7 +598,7 @@ export function MCPMarketplaceClient() {
                     )}
 
                     {/* 安裝按鈕 */}
-                    <div className="pt-2">
+                    <div className="space-y-2 pt-2">
                       <Button
                         size="sm"
                         className="w-full"
@@ -448,6 +624,55 @@ export function MCPMarketplaceClient() {
                           </>
                         )}
                       </Button>
+                      
+                      {/* 評分和收藏 */}
+                      <div className="flex gap-2">
+                        <div className="flex-1 flex items-center gap-1 bg-stone-50 rounded p-2">
+                          <div className="flex">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                onClick={() =>
+                                  handleRateService(service.id, star, 
+                                    ratingServices[service.id]?.isFavorite ?? false)
+                                }
+                                className="hover:opacity-70 transition-opacity"
+                                disabled={service.isInstalled ? false : true}
+                              >
+                                <Star
+                                  className={`h-4 w-4 ${
+                                    star <=
+                                    (ratingServices[service.id]?.rating ?? 0)
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-stone-300"
+                                  }`}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                          <span className="text-xs text-stone-500 ml-1">
+                            ({service.reviews || 0})
+                          </span>
+                        </div>
+                        <button
+                          onClick={() =>
+                            handleRateService(service.id, 
+                              ratingServices[service.id]?.rating ?? 0,
+                              !(ratingServices[service.id]?.isFavorite ?? false))
+                          }
+                          disabled={service.isInstalled ? false : true}
+                          className="p-2 hover:bg-stone-100 rounded transition-colors"
+                          title="收藏此服務"
+                        >
+                          <Heart
+                            className={`h-4 w-4 ${
+                              ratingServices[service.id]?.isFavorite
+                                ? "fill-red-500 text-red-500"
+                                : "text-stone-300"
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -501,27 +726,63 @@ export function MCPMarketplaceClient() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-between">
+                    <div className="space-y-3">
                       <div className="text-xs text-stone-500">
                         {service.lastTestedAt
                           ? `上次測試：${new Date(service.lastTestedAt).toLocaleString()}`
                           : "尚未測試"}
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTestService(service.id)}
-                        disabled={testingServices.has(service.id)}
-                      >
-                        {testingServices.has(service.id) ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            測試中...
-                          </>
-                        ) : (
-                          "測試連線"
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTestService(service.id)}
+                          disabled={testingServices.has(service.id)}
+                          className="flex-1"
+                        >
+                          {testingServices.has(service.id) ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              測試中...
+                            </>
+                          ) : (
+                            "測試連線"
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleToggleService(service.id)}
+                          disabled={togglingServices.has(service.id)}
+                          className="flex-1"
+                        >
+                          {togglingServices.has(service.id) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : service.enabled ? (
+                            <>
+                              <PowerOff className="h-4 w-4 mr-2" />
+                              停用
+                            </>
+                          ) : (
+                            <>
+                              <Power className="h-4 w-4 mr-2" />
+                              啟用
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteService(service.id)}
+                          disabled={deletingServices.has(service.id)}
+                        >
+                          {deletingServices.has(service.id) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

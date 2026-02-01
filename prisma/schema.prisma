@@ -312,8 +312,46 @@ model MCPServiceRegistry {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   
+  // Relations
+  favorites      MCPServiceFavorite[]
+  userRatings    MCPServiceRating[]
+  
   @@index([category])
   @@index([type])
   @@index([name])
   @@index([isActive])
 }
+
+// 11. MCP 服務收藏 (User Favorites)
+model MCPServiceFavorite {
+  id          String   @id @default(cuid())
+  userId      String   @default("default")  // 用戶 ID (多用戶預留)
+  serviceId   String
+  service     MCPServiceRegistry @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([userId, serviceId])
+  @@index([userId])
+  @@index([serviceId])
+}
+
+// 12. MCP 服務評分 (User Ratings)
+model MCPServiceRating {
+  id          String   @id @default(cuid())
+  userId      String   @default("default")  // 用戶 ID (多用戶預留)
+  serviceId   String
+  service     MCPServiceRegistry @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  rating      Int                           // 評分 1-5
+  review      String?                       // 可選評論
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, serviceId])
+  @@index([userId])
+  @@index([serviceId])
+  @@index([rating])
+}
+
