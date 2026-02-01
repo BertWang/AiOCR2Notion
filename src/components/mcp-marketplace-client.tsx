@@ -35,6 +35,9 @@ import {
 import { toast } from "sonner";
 import { ServiceValidation } from "@/components/service-validation";
 import { ServiceTroubleshooting } from "@/components/service-troubleshooting";
+import { MCPRecommendations } from "@/components/mcp-recommendations";
+import { MCPAnalyticsDashboard } from "@/components/mcp-analytics-dashboard";
+import { MCPServiceValidation } from "@/components/mcp-service-validation";
 
 interface MarketplaceService {
   id: string;
@@ -485,11 +488,13 @@ export function MCPMarketplaceClient() {
       </Dialog>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="browse">瀏覽市場</TabsTrigger>
           <TabsTrigger value="installed">
             已安裝 ({installedServices.length})
           </TabsTrigger>
+          <TabsTrigger value="recommendations">推薦</TabsTrigger>
+          <TabsTrigger value="analytics">分析</TabsTrigger>
         </TabsList>
 
         <TabsContent value="browse" className="space-y-4">
@@ -818,6 +823,20 @@ export function MCPMarketplaceClient() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="recommendations" className="space-y-4">
+          <MCPRecommendations 
+            limit={9}
+            showPersonalized={true}
+            onServiceClick={(service) => {
+              toast.info(`${service.displayName} - 推薦分數 ${service.score.toFixed(1)}`);
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <MCPAnalyticsDashboard />
         </TabsContent>
       </Tabs>
     </div>
