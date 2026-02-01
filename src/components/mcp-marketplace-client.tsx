@@ -33,6 +33,8 @@ import {
   Heart,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ServiceValidation } from "@/components/service-validation";
+import { ServiceTroubleshooting } from "@/components/service-troubleshooting";
 
 interface MarketplaceService {
   id: string;
@@ -80,6 +82,7 @@ export function MCPMarketplaceClient() {
   const [favoriteServices, setFavoriteServices] = useState<Set<string>>(new Set());
   const [ratingStars, setRatingStars] = useState<Record<string, number>>({});
   const [favoritingServices, setFavoritingServices] = useState<Set<string>>(new Set());
+  const [expandedService, setExpandedService] = useState<string | null>(null);
 
   // 加載市場數據
   useEffect(() => {
@@ -698,7 +701,7 @@ export function MCPMarketplaceClient() {
           ) : (
             <div className="space-y-3">
               {installedServices.map((service) => (
-                <Card key={service.id}>
+                <Card key={service.id} className="overflow-hidden">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
@@ -725,65 +728,91 @@ export function MCPMarketplaceClient() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="text-xs text-stone-500">
-                        {service.lastTestedAt
-                          ? `上次測試：${new Date(service.lastTestedAt).toLocaleString()}`
-                          : "尚未測試"}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleTestService(service.id)}
-                          disabled={testingServices.has(service.id)}
-                          className="flex-1"
-                        >
-                          {testingServices.has(service.id) ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              測試中...
-                            </>
-                          ) : (
-                            "測試連線"
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleToggleService(service.id)}
-                          disabled={togglingServices.has(service.id)}
-                          className="flex-1"
-                        >
-                          {togglingServices.has(service.id) ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : service.enabled ? (
-                            <>
-                              <PowerOff className="h-4 w-4 mr-2" />
-                              停用
-                            </>
-                          ) : (
-                            <>
-                              <Power className="h-4 w-4 mr-2" />
-                              啟用
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteService(service.id)}
-                          disabled={deletingServices.has(service.id)}
-                        >
-                          {deletingServices.has(service.id) ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
+                  <CardContent className="space-y-3">
+                    <div className="text-xs text-stone-500">
+                      {service.lastTestedAt
+                        ? `上次測試：${new Date(service.lastTestedAt).toLocaleString()}`
+                        : "尚未測試"}
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleTestService(service.id)}
+                        disabled={testingServices.has(service.id)}
+                        className="flex-1"
+                      >
+                        {testingServices.has(service.id) ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            測試中...
+                          </>
+                        ) : (
+                          "測試連線"
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleToggleService(service.id)}
+                        disabled={togglingServices.has(service.id)}
+                        className="flex-1"
+                      >
+                        {togglingServices.has(service.id) ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : service.enabled ? (
+                          <>
+                            <PowerOff className="h-4 w-4 mr-2" />
+                            停用
+                          </>
+                        ) : (
+                          <>
+                            <Power className="h-4 w-4 mr-2" />
+                            啟用
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteService(service.id)}
+                        disabled={deletingServices.has(service.id)}
+                      >
+                        {deletingServices.has(service.id) ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* 詳細診斷按鈕 */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setExpandedService(
+                          expandedService === service.id ? null : service.id
+                        )
+                      }
+                      className="w-full"
+                    >
+                      {expandedService === service.id ? "隱藏詳情" : "顯示詳情"}
+                    </Button>
+
+                    {/* 展開的驗證和故障排查部分 */}
+                    {expandedService === service.id && (
+                      <div className="space-y-4 pt-4 border-t">
+                        <ServiceValidation
+                          serviceId={service.id}
+                          serviceName={service.name}
+                        />
+                        <ServiceTroubleshooting
+                          serviceId={service.id}
+                          serviceName={service.name}
+                        />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
