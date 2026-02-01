@@ -26,6 +26,9 @@ interface RecommendationScore {
 interface MCPRecommendationsProps {
   onServiceSelect?: (serviceId: string) => void;
   excludeInstalled?: boolean;
+  limit?: number;
+  showPersonalized?: boolean;
+  onServiceClick?: (service: RecommendationScore) => void;
 }
 
 const getScoreColor = (score: number) => {

@@ -829,7 +829,7 @@ export function MCPMarketplaceClient() {
           <MCPRecommendations 
             limit={9}
             showPersonalized={true}
-            onServiceClick={(service) => {
+            onServiceClick={(service: any) => {
               toast.info(`${service.displayName} - 推薦分數 ${service.score.toFixed(1)}`);
             }}
           />
